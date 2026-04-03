@@ -1,0 +1,82 @@
+package com.app.platform.api.permission;
+
+import com.app.platform.api.dto.ApiSuccessBody;
+import com.app.platform.api.dto.permission.MenuOpCodesDto;
+import com.app.platform.core.authentication.Constants;
+import com.app.platform.core.authentication.UserManager;
+import com.app.platform.exception.BadRequestException;
+import com.app.platform.exception.MenuNotFoundException;
+import com.app.platform.sm.menu.repository.AppMenuRepository;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/permissions")
+public class PermissionsController {
+
+	private final AppMenuRepository appMenuRepository;
+
+	public PermissionsController(AppMenuRepository appMenuRepository) {
+		this.appMenuRepository = appMenuRepository;
+	}
+
+	@GetMapping("/menus/{menuId}/op-codes")
+	public ResponseEntity<ApiSuccessBody<MenuOpCodesDto>> opCodesForMenu(@PathVariable Long menuId) {
+		if (!appMenuRepository.existsById(menuId)) {
+			throw new MenuNotFoundException();
+		}
+		List<String> codes = UserManager.getOpCodes(menuId);
+		return ResponseEntity.ok(ApiSuccessBody.of(new MenuOpCodesDto(String.valueOf(menuId), codes)));
+	}
+
+	@GetMapping(value = "/menus/op-codes", params = "ids")
+	public ResponseEntity<ApiSuccessBody<Map<String, List<String>>>> opCodesBatch(@RequestParam String ids) {
+		List<Long> idList = parseMenuIds(ids);
+		Map<String, List<String>> map = new LinkedHashMap<>();
+		for (Long mid : idList) {
+			if (!appMenuRepository.existsById(mid)) {
+				map.put(String.valueOf(mid), List.of());
+			}
+			else {
+				map.put(String.valueOf(mid), UserManager.getOpCodes(mid));
+			}
+		}
+		return ResponseEntity.ok(ApiSuccessBody.of(map));
+	}
+
+	private static List<Long> parseMenuIds(String ids) {
+		if (ids == null || ids.isBlank()) {
+			throw new BadRequestException("ids 不能为空");
+		}
+		String[] parts = ids.split(",");
+		if (parts.length > Constants.MAX_MENU_IDS_BATCH) {
+			throw new BadRequestException("ids 数量不能超过 " + Constants.MAX_MENU_IDS_BATCH);
+		}
+		List<Long> out = new ArrayList<>();
+		for (String p : parts) {
+			String t = p.trim();
+			if (t.isEmpty()) {
+				continue;
+			}
+			try {
+				out.add(Long.parseLong(t));
+			}
+			catch (NumberFormatException ex) {
+				throw new BadRequestException("非法菜单 id: " + t);
+			}
+		}
+		if (out.isEmpty()) {
+			throw new BadRequestException("ids 不能为空");
+		}
+		return out;
+	}
+}

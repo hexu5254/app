@@ -2,12 +2,14 @@ package com.app.platform.service;
 
 import com.app.platform.api.dto.LoginRequest;
 import com.app.platform.api.dto.UserSessionDto;
-import com.app.platform.auth.AuthenticatedContext;
-import com.app.platform.config.AuthProperties;
-import com.app.platform.domain.AppUser;
-import com.app.platform.domain.UserStatus;
+import com.app.platform.core.authentication.Constants;
+import com.app.platform.core.authentication.UserManager;
+import com.app.platform.core.authentication.intf.IUser;
 import com.app.platform.exception.AuthFailedException;
-import com.app.platform.repository.AppUserRepository;
+import com.app.platform.sm.user.crypto.LoginPasswordVerifier;
+import com.app.platform.sm.user.domain.SmUser;
+import com.app.platform.sm.user.repository.SmUserRepository;
+import com.app.platform.sm.user.service.IUserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
@@ -24,47 +26,50 @@ public class LoginService {
 
 	private static final Logger log = LoggerFactory.getLogger(LoginService.class);
 
-	private final AppUserRepository appUserRepository;
+	private final SmUserRepository smUserRepository;
 	private final PasswordEncoder passwordEncoder;
-	private final AuthProperties authProperties;
 	private final UserLoginPersistence userLoginPersistence;
+	private final IUserService userService;
 
-	public LoginService(AppUserRepository appUserRepository, PasswordEncoder passwordEncoder,
-			AuthProperties authProperties, UserLoginPersistence userLoginPersistence) {
-		this.appUserRepository = appUserRepository;
+	public LoginService(SmUserRepository smUserRepository, PasswordEncoder passwordEncoder,
+			UserLoginPersistence userLoginPersistence, IUserService userService) {
+		this.smUserRepository = smUserRepository;
 		this.passwordEncoder = passwordEncoder;
-		this.authProperties = authProperties;
 		this.userLoginPersistence = userLoginPersistence;
+		this.userService = userService;
 	}
 
 	/**
-	 * Login pipeline; on any failure throws {@link AuthFailedException} without touching session or last_login_at.
+	 * 登录：校验 sm_user；成功后写入 Session（{@link Constants#SESSION_USER}）与 ThreadLocal。
 	 */
 	public UserSessionDto login(LoginRequest req, HttpServletRequest httpRequest) {
-		String loginNameNorm = req.loginName().toLowerCase(Locale.ROOT);
+		String codeNorm = req.loginName().toLowerCase(Locale.ROOT);
 
-		Optional<AppUser> userOpt = appUserRepository.findByLoginName(loginNameNorm);
+		Optional<SmUser> userOpt = smUserRepository.findByCodeIgnoreCase(codeNorm);
 		if (userOpt.isEmpty()) {
 			log.warn("Login failed: user not found (masked)");
 			throw new AuthFailedException();
 		}
-		AppUser user = userOpt.get();
+		SmUser account = userOpt.get();
 
-		UserStatus st = UserStatus.fromCode(user.getStatus());
-		if (!st.allowsLogin()) {
-			log.warn("Login failed: invalid user status userId={} status={}", user.getId(), user.getStatus());
+		if (Constants.USER_STATUS_DELETED.equals(account.getStatus())) {
+			log.warn("Login failed: deleted user userId={}", account.getId());
+			throw new AuthFailedException();
+		}
+		if (!Constants.USER_STATUS_NORMAL.equals(account.getStatus())) {
+			log.warn("Login failed: invalid user status userId={} status={}", account.getId(), account.getStatus());
 			throw new AuthFailedException();
 		}
 
 		Instant now = Instant.now();
-		if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
-			log.warn("Login failed: account locked userId={}", user.getId());
+		if (account.getLockedUntil() != null && account.getLockedUntil().isAfter(now)) {
+			log.warn("Login failed: account locked userId={}", account.getId());
 			throw new AuthFailedException();
 		}
 
-		if (!passwordEncoder.matches(req.password(), user.getPasswordHash())) {
-			log.warn("Login failed: bad password userId={}", user.getId());
-			userLoginPersistence.recordWrongPassword(user);
+		if (!LoginPasswordVerifier.matches(req.password(), account, passwordEncoder)) {
+			log.warn("Login failed: bad password userId={}", account.getId());
+			userLoginPersistence.recordWrongPassword(account);
 			throw new AuthFailedException();
 		}
 
@@ -72,18 +77,12 @@ public class LoginService {
 		if (old != null) {
 			old.invalidate();
 		}
-		HttpSession session = httpRequest.getSession(true);
-		long authenticatedAt = System.currentTimeMillis();
-		AuthenticatedContext ctx = new AuthenticatedContext(
-				user.getId(),
-				user.getLoginName(),
-				user.getDisplayName(),
-				authenticatedAt);
-		session.setAttribute(authProperties.getSessionAttributeName(), ctx);
+		httpRequest.getSession(true);
 
-		userLoginPersistence.recordSuccessfulLogin(user.getId());
+		IUser user = userService.getById(account.getId());
+		UserManager.setLoginUser(user, Constants.LOGIN_TYPE_WEB, httpRequest, true);
 
-		return new UserSessionDto(user.getId(), user.getLoginName(), user.getDisplayName());
+		return new UserSessionDto(account.getId(), account.getCode(), user.getDisplayName());
 	}
 
 	public void logout(HttpServletRequest httpRequest) {

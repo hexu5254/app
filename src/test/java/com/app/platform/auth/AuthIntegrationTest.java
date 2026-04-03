@@ -1,8 +1,13 @@
 package com.app.platform.auth;
 
-import com.app.platform.domain.AppUser;
-import com.app.platform.domain.UserStatus;
-import com.app.platform.repository.AppUserRepository;
+import com.app.platform.core.authentication.Constants;
+import com.app.platform.org.employee.domain.SysEmployee;
+import com.app.platform.org.employee.repository.SysEmployeeRepository;
+import com.app.platform.sm.role.domain.SmRoleUser;
+import com.app.platform.sm.role.repository.AppRoleRepository;
+import com.app.platform.sm.role.repository.SmRoleUserRepository;
+import com.app.platform.sm.user.domain.SmUser;
+import com.app.platform.sm.user.repository.SmUserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,22 +34,41 @@ class AuthIntegrationTest {
 	private MockMvc mockMvc;
 
 	@Autowired
-	private AppUserRepository appUserRepository;
+	private SmUserRepository smUserRepository;
+
+	@Autowired
+	private SysEmployeeRepository sysEmployeeRepository;
 
 	@Autowired
 	private PasswordEncoder passwordEncoder;
 
+	@Autowired
+	private AppRoleRepository appRoleRepository;
+
+	@Autowired
+	private SmRoleUserRepository smRoleUserRepository;
+
 	@BeforeEach
 	void resetData() {
-		appUserRepository.deleteAll();
+		sysEmployeeRepository.deleteAll();
+		smUserRepository.deleteAll();
 
-		AppUser user = new AppUser();
-		user.setLoginName("zhangsan");
-		user.setDisplayName("张三");
-		user.setPasswordHash(passwordEncoder.encode("secret"));
-		user.setStatus(UserStatus.NORMAL.getCode());
-		user.setFailedLoginCount(0);
-		appUserRepository.save(user);
+		SmUser sm = new SmUser();
+		sm.setCode("zhangsan");
+		sm.setName("张三");
+		sm.setPasswordBcrypt(passwordEncoder.encode("secret"));
+		sm.setUserType((short) 0);
+		sm.setStatus(Constants.USER_STATUS_NORMAL);
+		sm.setFailedLoginCount(0);
+		smUserRepository.save(sm);
+
+		SysEmployee emp = new SysEmployee();
+		emp.setSmUser(sm);
+		emp.setStatus(Constants.USER_STATUS_NORMAL);
+		emp.setCode("zhangsan");
+		emp.setName("张三");
+		emp.setUserId(sm.getId());
+		sysEmployeeRepository.save(emp);
 	}
 
 	@Test
@@ -87,9 +111,9 @@ class AuthIntegrationTest {
 
 	@Test
 	void ac4_disabledUser() throws Exception {
-		AppUser u = appUserRepository.findByLoginName("zhangsan").orElseThrow();
-		u.setStatus(UserStatus.DISABLED.getCode());
-		appUserRepository.save(u);
+		SmUser u = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		u.setStatus(Constants.USER_STATUS_FREEZE);
+		smUserRepository.save(u);
 
 		mockMvc.perform(post("/api/auth/login")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -141,7 +165,8 @@ class AuthIntegrationTest {
 
 	@Test
 	void registerCreatesUser_201() throws Exception {
-		appUserRepository.deleteAll();
+		sysEmployeeRepository.deleteAll();
+		smUserRepository.deleteAll();
 
 		mockMvc.perform(post("/api/auth/register")
 						.contentType(MediaType.APPLICATION_JSON)
@@ -151,7 +176,14 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.data.loginName").value("newuser"))
 				.andExpect(jsonPath("$.data.displayName").value("新用户"));
 
-		assertThat(appUserRepository.findByLoginName("newuser")).isPresent();
+		assertThat(smUserRepository.findByCodeIgnoreCase("newuser")).isPresent();
+		Long newUserId = smUserRepository.findByCodeIgnoreCase("newuser").orElseThrow().getId();
+		assertThat(sysEmployeeRepository.findById(newUserId)).isPresent();
+		var normalRole = appRoleRepository.findByCode(Constants.APP_ROLE_CODE_NORMAL_USER);
+		assertThat(normalRole).as("Flyway V4 须提供 app_role normal_user").isPresent();
+		assertThat(smRoleUserRepository.findByUserId(newUserId))
+				.extracting(SmRoleUser::getRoleId)
+				.contains(normalRole.get().getId());
 	}
 
 	@Test
@@ -166,7 +198,8 @@ class AuthIntegrationTest {
 
 	@Test
 	void registerDoesNotCreateSession() throws Exception {
-		appUserRepository.deleteAll();
+		sysEmployeeRepository.deleteAll();
+		smUserRepository.deleteAll();
 
 		MockHttpSession session = new MockHttpSession();
 		mockMvc.perform(post("/api/auth/register")

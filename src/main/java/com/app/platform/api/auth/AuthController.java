@@ -5,8 +5,8 @@ import com.app.platform.api.dto.LoginRequest;
 import com.app.platform.api.dto.LogoutResponse;
 import com.app.platform.api.dto.RegisterRequest;
 import com.app.platform.api.dto.UserSessionDto;
-import com.app.platform.auth.AuthContextHolder;
-import com.app.platform.auth.AuthenticatedContext;
+import com.app.platform.core.authentication.UserManager;
+import com.app.platform.core.authentication.intf.IUser;
 import com.app.platform.exception.UnauthorizedException;
 import com.app.platform.service.LoginService;
 import com.app.platform.service.RegistrationService;
@@ -53,11 +53,11 @@ public class AuthController {
 
 	@GetMapping("/me")
 	public ResponseEntity<ApiSuccessBody<UserSessionDto>> me() {
-		AuthenticatedContext ctx = AuthContextHolder.get();
-		if (ctx == null) {
+		IUser u = UserManager.getLoginUser();
+		if (UserManager.isAnonymous()) {
 			throw new UnauthorizedException();
 		}
-		UserSessionDto dto = new UserSessionDto(ctx.getUserId(), ctx.getLoginName(), ctx.getDisplayName());
+		UserSessionDto dto = new UserSessionDto(u.getLoginUserId(), u.getUserCode(), u.getDisplayName());
 		return ResponseEntity.ok(ApiSuccessBody.of(dto));
 	}
 }

@@ -1,5 +1,6 @@
 package com.app.platform.config;
 
+import com.app.platform.auth.filter.AdminAuthorizationFilter;
 import com.app.platform.auth.filter.ApiAccessControlFilter;
 import com.app.platform.auth.filter.AuthContextFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,9 +13,9 @@ import org.springframework.core.Ordered;
 public class FilterConfig {
 
 	@Bean
-	public FilterRegistrationBean<AuthContextFilter> authContextFilterRegistration(AuthProperties authProperties) {
+	public FilterRegistrationBean<AuthContextFilter> authContextFilterRegistration() {
 		FilterRegistrationBean<AuthContextFilter> bean = new FilterRegistrationBean<>();
-		bean.setFilter(new AuthContextFilter(authProperties));
+		bean.setFilter(new AuthContextFilter());
 		bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 20);
 		bean.addUrlPatterns("/*");
 		return bean;
@@ -27,6 +28,17 @@ public class FilterConfig {
 		FilterRegistrationBean<ApiAccessControlFilter> bean = new FilterRegistrationBean<>();
 		bean.setFilter(new ApiAccessControlFilter(authProperties, objectMapper));
 		bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 30);
+		bean.addUrlPatterns("/*");
+		return bean;
+	}
+
+	@Bean
+	public FilterRegistrationBean<AdminAuthorizationFilter> adminAuthorizationFilterRegistration(
+			AuthProperties authProperties,
+			ObjectMapper objectMapper) {
+		FilterRegistrationBean<AdminAuthorizationFilter> bean = new FilterRegistrationBean<>();
+		bean.setFilter(new AdminAuthorizationFilter(authProperties, objectMapper));
+		bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 35);
 		bean.addUrlPatterns("/*");
 		return bean;
 	}

@@ -1,8 +1,13 @@
 package com.app.platform.api.error;
 
 import com.app.platform.api.dto.ApiErrorBody;
+import com.app.platform.exception.BadRequestException;
 import com.app.platform.exception.AuthFailedException;
+import com.app.platform.exception.ForbiddenException;
+import com.app.platform.exception.InvalidRoleException;
+import com.app.platform.exception.MenuNotFoundException;
 import com.app.platform.exception.UnauthorizedException;
+import com.app.platform.exception.UserNotFoundException;
 import com.app.platform.exception.UsernameTakenException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,5 +40,35 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiErrorBody> validation(MethodArgumentNotValidException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
 				.body(ApiErrorBody.of("VALIDATION_ERROR", "请求参数无效"));
+	}
+
+	@ExceptionHandler(ForbiddenException.class)
+	public ResponseEntity<ApiErrorBody> forbidden(ForbiddenException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN)
+				.body(ApiErrorBody.of("FORBIDDEN", ex.getMessage()));
+	}
+
+	@ExceptionHandler(MenuNotFoundException.class)
+	public ResponseEntity<ApiErrorBody> menuNotFound(MenuNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiErrorBody.of("MENU_NOT_FOUND", ex.getMessage()));
+	}
+
+	@ExceptionHandler(UserNotFoundException.class)
+	public ResponseEntity<ApiErrorBody> userNotFound(UserNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiErrorBody.of("USER_NOT_FOUND", ex.getMessage()));
+	}
+
+	@ExceptionHandler(InvalidRoleException.class)
+	public ResponseEntity<ApiErrorBody> invalidRole(InvalidRoleException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ApiErrorBody.of("INVALID_ROLE", ex.getMessage()));
+	}
+
+	@ExceptionHandler(BadRequestException.class)
+	public ResponseEntity<ApiErrorBody> badRequest(BadRequestException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+				.body(ApiErrorBody.of("BAD_REQUEST", ex.getMessage()));
 	}
 }

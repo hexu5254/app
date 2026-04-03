@@ -9,9 +9,9 @@ import java.util.List;
 public class AuthProperties {
 
 	/**
-	 * HttpSession attribute key for {@link com.app.platform.auth.AuthenticatedContext}.
+	 * 历史配置项；当前实现固定使用 {@link com.app.platform.core.authentication.Constants#SESSION_USER}（{@code user}）存放 {@link com.app.platform.core.authentication.intf.IUser}。
 	 */
-	private String sessionAttributeName = "AUTH_CONTEXT";
+	private String sessionAttributeName = "user";
 
 	private int bcryptStrength = 10;
 
@@ -23,6 +23,16 @@ public class AuthProperties {
 	 * Paths that skip authentication. Each entry: {@code METHOD:antPattern}, e.g. {@code POST:/api/auth/login}.
 	 */
 	private List<String> anonymousPaths = defaultAnonymousPaths();
+
+	/**
+	 * 显式平台管理员用户 ID（与 {@code user_type=9}、{@code IS_ADMIN_EMP} 并列，满足其一即可访问 /api/admin）。
+	 */
+	private List<Long> adminUserIds = new ArrayList<>();
+
+	/**
+	 * 与参考「企业管理员主键」一致：该 {@code sm_user.id} 登录后带 {@code IS_ADMIN_EMP}。测试可设为 -1 避免首个自增用户被误判。
+	 */
+	private long enterpriseAdminUserId = 1L;
 
 	private static List<String> defaultAnonymousPaths() {
 		List<String> list = new ArrayList<>();
@@ -73,5 +83,21 @@ public class AuthProperties {
 
 	public void setAnonymousPaths(List<String> anonymousPaths) {
 		this.anonymousPaths = anonymousPaths;
+	}
+
+	public List<Long> getAdminUserIds() {
+		return adminUserIds;
+	}
+
+	public void setAdminUserIds(List<Long> adminUserIds) {
+		this.adminUserIds = adminUserIds;
+	}
+
+	public long getEnterpriseAdminUserId() {
+		return enterpriseAdminUserId;
+	}
+
+	public void setEnterpriseAdminUserId(long enterpriseAdminUserId) {
+		this.enterpriseAdminUserId = enterpriseAdminUserId;
 	}
 }

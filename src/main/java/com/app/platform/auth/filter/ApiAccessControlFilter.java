@@ -1,9 +1,8 @@
 package com.app.platform.auth.filter;
 
-import com.app.platform.auth.AuthContextHolder;
-import com.app.platform.auth.AuthenticatedContext;
-import com.app.platform.config.AuthProperties;
 import com.app.platform.api.dto.ApiErrorBody;
+import com.app.platform.config.AuthProperties;
+import com.app.platform.core.authentication.UserManager;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -19,7 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * After {@link AuthContextFilter}: require authentication for {@code /api/**} except configured whitelist.
+ * 在 {@link AuthContextFilter} 之后：除白名单外，{@code /api/**} 需已登录（非匿名 IUser）。
  */
 public class ApiAccessControlFilter extends OncePerRequestFilter {
 
@@ -58,8 +57,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 		}
 
 		if (path.startsWith("/api/") && !isAnonymous(request.getMethod(), path)) {
-			AuthenticatedContext ctx = AuthContextHolder.get();
-			if (ctx == null) {
+			if (UserManager.isAnonymous()) {
 				writeUnauthorized(response);
 				return;
 			}

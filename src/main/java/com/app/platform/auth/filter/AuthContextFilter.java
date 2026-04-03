@@ -1,8 +1,8 @@
 package com.app.platform.auth.filter;
 
-import com.app.platform.auth.AuthContextHolder;
-import com.app.platform.auth.AuthenticatedContext;
-import com.app.platform.config.AuthProperties;
+import com.app.platform.core.authentication.Constants;
+import com.app.platform.core.authentication.ThreadLocalManager;
+import com.app.platform.core.authentication.intf.IUser;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,13 +12,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
+/**
+ * 将 Session 中的 {@link IUser} 绑定到当前线程；请求结束清理 ThreadLocal。
+ */
 public class AuthContextFilter extends OncePerRequestFilter {
-
-	private final AuthProperties authProperties;
-
-	public AuthContextFilter(AuthProperties authProperties) {
-		this.authProperties = authProperties;
-	}
 
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -26,15 +23,15 @@ public class AuthContextFilter extends OncePerRequestFilter {
 		try {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
-				Object raw = session.getAttribute(authProperties.getSessionAttributeName());
-				if (raw instanceof AuthenticatedContext ac) {
-					AuthContextHolder.set(ac);
+				Object raw = session.getAttribute(Constants.SESSION_USER);
+				if (raw instanceof IUser iu) {
+					ThreadLocalManager.setUserLocal(iu);
 				}
 			}
 			filterChain.doFilter(request, response);
 		}
 		finally {
-			AuthContextHolder.clear();
+			ThreadLocalManager.clearUserLocal();
 		}
 	}
 }
