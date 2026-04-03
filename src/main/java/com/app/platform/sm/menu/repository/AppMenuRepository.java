@@ -28,4 +28,6 @@ public interface AppMenuRepository extends JpaRepository<AppMenu, Long> {
 			WHERE m.client_type = :clientType AND m.status = '1' AND sru.user_id = :userId
 			""", nativeQuery = true)
 	List<Long> findVisibleMenuIdsForAssignedUser(@Param("userId") long userId, @Param("clientType") String clientType);
+
+	long countByParent_IdAndStatus(long parentId, String status);
 }

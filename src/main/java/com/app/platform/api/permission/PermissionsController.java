@@ -6,6 +6,7 @@ import com.app.platform.api.dto.permission.MenuVisibleNodeDto;
 import com.app.platform.core.authentication.Constants;
 import com.app.platform.core.authentication.UserManager;
 import com.app.platform.exception.BadRequestException;
+import com.app.platform.exception.ForbiddenException;
 import com.app.platform.exception.MenuNotFoundException;
 import com.app.platform.permission.VisibleMenuService;
 import com.app.platform.sm.menu.repository.AppMenuRepository;
@@ -40,9 +41,15 @@ public class PermissionsController {
 	}
 
 	@GetMapping("/menus/{menuId}/op-codes")
-	public ResponseEntity<ApiSuccessBody<MenuOpCodesDto>> opCodesForMenu(@PathVariable Long menuId) {
+	public ResponseEntity<ApiSuccessBody<MenuOpCodesDto>> opCodesForMenu(
+			@PathVariable Long menuId,
+			@RequestParam(defaultValue = "false") boolean safe,
+			@RequestParam(defaultValue = "1") String clientType) {
 		if (!appMenuRepository.existsById(menuId)) {
 			throw new MenuNotFoundException();
+		}
+		if (safe && !visibleMenuService.isMenuVisibleToCurrentUser(menuId, clientType)) {
+			throw new ForbiddenException("没有菜单访问权限");
 		}
 		List<String> codes = UserManager.getOpCodes(menuId);
 		return ResponseEntity.ok(ApiSuccessBody.of(new MenuOpCodesDto(String.valueOf(menuId), codes)));

@@ -159,4 +159,12 @@ public class AppMenu {
 	public void setId(Long id) {
 		this.id = id;
 	}
+
+	public void setCreatorId(Long creatorId) {
+		this.creatorId = creatorId;
+	}
+
+	public void setModifyierId(Long modifyierId) {
+		this.modifyierId = modifyierId;
+	}
 }

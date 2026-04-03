@@ -15,6 +15,8 @@ import com.app.platform.sm.role.repository.AppRoleRepository;
 import com.app.platform.sm.role.repository.SmRoleUserRepository;
 import com.app.platform.sm.user.domain.SmUser;
 import com.app.platform.sm.user.repository.SmUserRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +28,10 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -62,6 +67,9 @@ class AdminAndPermissionIntegrationTest {
 
 	@Autowired
 	private SmRoleUserRepository smRoleUserRepository;
+
+	@Autowired
+	private ObjectMapper objectMapper;
 
 	@BeforeEach
 	void reset() {
@@ -296,5 +304,183 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data[0].name").value("父菜单"))
 				.andExpect(jsonPath("$.data[1].name").value("子菜单"))
 				.andExpect(jsonPath("$.data[1].parentId").value(parent.getId().intValue()));
+	}
+
+	@Test
+	void replaceMenuPermissions_onlyReplacesSameClientType_assigns() throws Exception {
+		AppMenu webMenu = new AppMenu();
+		webMenu.setName("Web端菜单");
+		webMenu.setMenuType(Constants.MENU_TYPE_EMP);
+		webMenu.setClientType("1");
+		webMenu.setStatus("1");
+		appMenuRepository.save(webMenu);
+
+		AppMenu appMenu = new AppMenu();
+		appMenu.setName("App端菜单");
+		appMenu.setMenuType(Constants.MENU_TYPE_EMP);
+		appMenu.setClientType("2");
+		appMenu.setStatus("1");
+		appMenuRepository.save(appMenu);
+
+		AppOpSecurity opWeb = new AppOpSecurity();
+		opWeb.setMenu(webMenu);
+		opWeb.setCode("W1");
+		opWeb.setStatus("1");
+		appOpSecurityRepository.save(opWeb);
+
+		AppOpSecurity opApp = new AppOpSecurity();
+		opApp.setMenu(appMenu);
+		opApp.setCode("A1");
+		opApp.setStatus("1");
+		appOpSecurityRepository.save(opApp);
+
+		AppRole role = new AppRole();
+		role.setCode("dual_client_r");
+		role.setName("双端角色");
+		role.setStatus("1");
+		role.setSequ(0);
+		role.setIsInner("0");
+		role.setIsViewAll("0");
+		appRoleRepository.save(role);
+
+		AppOpAssign a1 = new AppOpAssign();
+		a1.setRole(role);
+		a1.setOp(opWeb);
+		appOpAssignRepository.save(a1);
+		AppOpAssign a2 = new AppOpAssign();
+		a2.setRole(role);
+		a2.setOp(opApp);
+		appOpAssignRepository.save(a2);
+
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+
+		MockHttpSession adminSession = loginZhangsan();
+		mockMvc.perform(put("/api/admin/roles/" + role.getId() + "/menu-permissions")
+						.param("clientType", "1")
+						.session(adminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"opIds\":[" + opWeb.getId() + "]}"))
+				.andExpect(status().isOk());
+
+		org.assertj.core.api.Assertions.assertThat(appOpAssignRepository.findOpIdsByRoleIdAndMenuClientType(role.getId(), "1"))
+				.containsExactly(opWeb.getId());
+		org.assertj.core.api.Assertions.assertThat(appOpAssignRepository.findOpIdsByRoleIdAndMenuClientType(role.getId(), "2"))
+				.containsExactly(opApp.getId());
+	}
+
+	@Test
+	void admin_menuCrud_assignTree_andDeleteRules() throws Exception {
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+		MockHttpSession adminSession = loginZhangsan();
+
+		var created = mockMvc.perform(post("/api/admin/menus")
+						.session(adminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"根-CRUD\",\"clientType\":\"1\",\"sequ\":1}"))
+				.andExpect(status().isCreated())
+				.andExpect(jsonPath("$.data.name").value("根-CRUD"))
+				.andReturn();
+		JsonNode rootNode = objectMapper.readTree(created.getResponse().getContentAsString());
+		long rootId = rootNode.get("data").get("id").asLong();
+
+		mockMvc.perform(get("/api/admin/menus/assign-tree").param("clientType", "1").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].name").value("根-CRUD"))
+				.andExpect(jsonPath("$.data[0].id").value((int) rootId));
+
+		mockMvc.perform(get("/api/admin/roles/menu-assign-tree").param("clientType", "1").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].name").value("根-CRUD"));
+
+		var childCreated = mockMvc.perform(post("/api/admin/menus")
+						.session(adminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"name\":\"子菜单\",\"clientType\":\"1\",\"parentId\":" + rootId + "}"))
+				.andExpect(status().isCreated())
+				.andReturn();
+		long childId = objectMapper.readTree(childCreated.getResponse().getContentAsString()).get("data").get("id").asLong();
+
+		mockMvc.perform(delete("/api/admin/menus/" + rootId).session(adminSession))
+				.andExpect(status().isBadRequest());
+
+		mockMvc.perform(delete("/api/admin/menus/" + childId).session(adminSession))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(delete("/api/admin/menus/" + rootId).session(adminSession))
+				.andExpect(status().isOk());
+
+		mockMvc.perform(get("/api/admin/menus/tree-rows").param("clientType", "1").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data", hasSize(0)));
+	}
+
+	@Test
+	void opCodes_safeMode_forbiddenWhenMenuNotVisible() throws Exception {
+		AppMenu menuA = new AppMenu();
+		menuA.setName("可见菜单");
+		menuA.setMenuType(Constants.MENU_TYPE_EMP);
+		menuA.setClientType("1");
+		menuA.setStatus("1");
+		appMenuRepository.save(menuA);
+
+		AppMenu menuB = new AppMenu();
+		menuB.setName("不可见菜单");
+		menuB.setMenuType(Constants.MENU_TYPE_EMP);
+		menuB.setClientType("1");
+		menuB.setStatus("1");
+		appMenuRepository.save(menuB);
+
+		AppOpSecurity opA = new AppOpSecurity();
+		opA.setMenu(menuA);
+		opA.setCode("XA");
+		opA.setStatus("1");
+		appOpSecurityRepository.save(opA);
+
+		AppOpSecurity opB = new AppOpSecurity();
+		opB.setMenu(menuB);
+		opB.setCode("XB");
+		opB.setStatus("1");
+		appOpSecurityRepository.save(opB);
+
+		AppRole role = new AppRole();
+		role.setCode("one_menu_r");
+		role.setName("单菜单角色");
+		role.setStatus("1");
+		role.setSequ(0);
+		role.setIsInner("0");
+		role.setIsViewAll("0");
+		appRoleRepository.save(role);
+
+		AppOpAssign assign = new AppOpAssign();
+		assign.setRole(role);
+		assign.setOp(opA);
+		appOpAssignRepository.save(assign);
+
+		SmUser sm = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		sm.setUserType((short) 0);
+		smUserRepository.save(sm);
+		SmRoleUser ru = new SmRoleUser();
+		ru.setUserId(sm.getId());
+		ru.setRoleId(role.getId());
+		smRoleUserRepository.save(ru);
+
+		MockHttpSession session = loginZhangsan();
+		mockMvc.perform(get("/api/permissions/menus/" + menuB.getId() + "/op-codes")
+						.param("safe", "true")
+						.param("clientType", "1")
+						.session(session))
+				.andExpect(status().isForbidden())
+				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
+
+		mockMvc.perform(get("/api/permissions/menus/" + menuA.getId() + "/op-codes")
+						.param("safe", "true")
+						.param("clientType", "1")
+						.session(session))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.opCodes[0]").value("XA"));
 	}
 }

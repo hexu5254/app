@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AppOpSecurityRepository extends JpaRepository<AppOpSecurity, Long> {
 
@@ -34,4 +35,12 @@ public interface AppOpSecurityRepository extends JpaRepository<AppOpSecurity, Lo
 				AND sru.user_id = :userId
 			""", nativeQuery = true)
 	List<String> findAssignedOpCodesForUserAndMenu(@Param("userId") long userId, @Param("menuId") long menuId);
+
+	long countByMenu_IdAndStatus(long menuId, String status);
+
+	List<AppOpSecurity> findByMenu_IdAndGroupIdIsNullOrderBySequAscIdAsc(long menuId);
+
+	boolean existsByMenu_IdAndGroupIdIsNullAndCodeAndIdNot(long menuId, String code, long id);
+
+	Optional<AppOpSecurity> findByMenu_IdAndGroupIdIsNullAndCode(long menuId, String code);
 }
