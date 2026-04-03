@@ -3,6 +3,7 @@ package com.app.platform.auth;
 import com.app.platform.core.authentication.Constants;
 import com.app.platform.org.employee.domain.SysEmployee;
 import com.app.platform.org.employee.repository.SysEmployeeRepository;
+import com.app.platform.sm.role.domain.AppRole;
 import com.app.platform.sm.role.domain.SmRoleUser;
 import com.app.platform.sm.role.repository.AppRoleRepository;
 import com.app.platform.sm.role.repository.SmRoleUserRepository;
@@ -167,6 +168,17 @@ class AuthIntegrationTest {
 	void registerCreatesUser_201() throws Exception {
 		sysEmployeeRepository.deleteAll();
 		smUserRepository.deleteAll();
+		// test 环境未跑 Flyway V4 种子时，补建默认角色
+		if (appRoleRepository.findByCode(Constants.APP_ROLE_CODE_NORMAL_USER).isEmpty()) {
+			AppRole r = new AppRole();
+			r.setCode(Constants.APP_ROLE_CODE_NORMAL_USER);
+			r.setName("普通用户");
+			r.setStatus("1");
+			r.setSequ(0);
+			r.setIsInner("0");
+			r.setIsViewAll("0");
+			appRoleRepository.save(r);
+		}
 
 		mockMvc.perform(post("/api/auth/register")
 						.contentType(MediaType.APPLICATION_JSON)

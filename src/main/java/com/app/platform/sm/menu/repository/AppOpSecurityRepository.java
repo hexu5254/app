@@ -9,6 +9,14 @@ import java.util.List;
 
 public interface AppOpSecurityRepository extends JpaRepository<AppOpSecurity, Long> {
 
+	@Query("""
+			select o from AppOpSecurity o join fetch o.menu m
+			where o.status = '1' and m.status = '1' and m.clientType = :clientType
+				and o.groupId is null
+			order by m.sequ asc, m.id asc, o.sequ asc, o.code asc
+			""")
+	List<AppOpSecurity> findSelectableOpsByClientType(@Param("clientType") String clientType);
+
 	@Query(value = """
 			SELECT DISTINCT aos.code FROM app_op_security aos
 			WHERE aos.menu_id = :menuId AND aos.group_id IS NULL AND aos.status = '1'

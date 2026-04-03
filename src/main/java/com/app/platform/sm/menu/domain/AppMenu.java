@@ -111,4 +111,52 @@ public class AppMenu {
 	public void setStatus(String status) {
 		this.status = status;
 	}
+
+	public AppMenu getParent() {
+		return parent;
+	}
+
+	public void setParent(AppMenu parent) {
+		this.parent = parent;
+	}
+
+	public Long getParentId() {
+		return parent != null ? parent.getId() : null;
+	}
+
+	public String getPath() {
+		return path;
+	}
+
+	public void setPath(String path) {
+		this.path = path;
+	}
+
+	public String getIcon() {
+		return icon;
+	}
+
+	public void setIcon(String icon) {
+		this.icon = icon;
+	}
+
+	public int getSequ() {
+		return sequ;
+	}
+
+	public void setSequ(int sequ) {
+		this.sequ = sequ;
+	}
+
+	public String getControlType() {
+		return controlType;
+	}
+
+	public void setControlType(String controlType) {
+		this.controlType = controlType;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
 }

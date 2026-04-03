@@ -6,6 +6,7 @@ import com.app.platform.exception.AuthFailedException;
 import com.app.platform.exception.ForbiddenException;
 import com.app.platform.exception.InvalidRoleException;
 import com.app.platform.exception.MenuNotFoundException;
+import com.app.platform.exception.RoleNotFoundException;
 import com.app.platform.exception.UnauthorizedException;
 import com.app.platform.exception.UserNotFoundException;
 import com.app.platform.exception.UsernameTakenException;
@@ -52,6 +53,12 @@ public class GlobalExceptionHandler {
 	public ResponseEntity<ApiErrorBody> menuNotFound(MenuNotFoundException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND)
 				.body(ApiErrorBody.of("MENU_NOT_FOUND", ex.getMessage()));
+	}
+
+	@ExceptionHandler(RoleNotFoundException.class)
+	public ResponseEntity<ApiErrorBody> roleNotFound(RoleNotFoundException ex) {
+		return ResponseEntity.status(HttpStatus.NOT_FOUND)
+				.body(ApiErrorBody.of("ROLE_NOT_FOUND", ex.getMessage()));
 	}
 
 	@ExceptionHandler(UserNotFoundException.class)

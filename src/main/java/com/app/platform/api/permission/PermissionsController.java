@@ -2,10 +2,12 @@ package com.app.platform.api.permission;
 
 import com.app.platform.api.dto.ApiSuccessBody;
 import com.app.platform.api.dto.permission.MenuOpCodesDto;
+import com.app.platform.api.dto.permission.MenuVisibleNodeDto;
 import com.app.platform.core.authentication.Constants;
 import com.app.platform.core.authentication.UserManager;
 import com.app.platform.exception.BadRequestException;
 import com.app.platform.exception.MenuNotFoundException;
+import com.app.platform.permission.VisibleMenuService;
 import com.app.platform.sm.menu.repository.AppMenuRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,9 +26,17 @@ import java.util.Map;
 public class PermissionsController {
 
 	private final AppMenuRepository appMenuRepository;
+	private final VisibleMenuService visibleMenuService;
 
-	public PermissionsController(AppMenuRepository appMenuRepository) {
+	public PermissionsController(AppMenuRepository appMenuRepository, VisibleMenuService visibleMenuService) {
 		this.appMenuRepository = appMenuRepository;
+		this.visibleMenuService = visibleMenuService;
+	}
+
+	@GetMapping("/menus/visible")
+	public ResponseEntity<ApiSuccessBody<List<MenuVisibleNodeDto>>> visibleMenus(
+			@RequestParam(defaultValue = "1") String clientType) {
+		return ResponseEntity.ok(ApiSuccessBody.of(visibleMenuService.visibleTree(clientType)));
 	}
 
 	@GetMapping("/menus/{menuId}/op-codes")

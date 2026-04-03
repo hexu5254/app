@@ -27,6 +27,7 @@ import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -158,5 +159,142 @@ class AdminAndPermissionIntegrationTest {
 		mockMvc.perform(get("/api/permissions/menus/" + menu.getId() + "/op-codes").session(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.opCodes[0]").value("ADD"));
+	}
+
+	@Test
+	void admin_canReplaceRoleMenuPermissions_and_visibleMenus() throws Exception {
+		AppMenu menu = new AppMenu();
+		menu.setName("根菜单");
+		menu.setMenuType(Constants.MENU_TYPE_EMP);
+		menu.setClientType("1");
+		menu.setStatus("1");
+		menu.setSequ(0);
+		appMenuRepository.save(menu);
+
+		AppOpSecurity op = new AppOpSecurity();
+		op.setMenu(menu);
+		op.setCode("VIEW");
+		op.setStatus("1");
+		op.setSequ(0);
+		appOpSecurityRepository.save(op);
+
+		AppRole role = new AppRole();
+		role.setCode("r_admin_test");
+		role.setName("测试角色");
+		role.setStatus("1");
+		role.setSequ(0);
+		role.setIsInner("0");
+		role.setIsViewAll("0");
+		appRoleRepository.save(role);
+
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+
+		MockHttpSession adminSession = loginZhangsan();
+		mockMvc.perform(put("/api/admin/roles/" + role.getId() + "/menu-permissions")
+						.param("clientType", "1")
+						.session(adminSession)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"opIds\":[" + op.getId() + "]}"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.opIds[0]").value(op.getId().intValue()));
+
+		SmUser sm = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		sm.setUserType((short) 0);
+		smUserRepository.save(sm);
+		SmRoleUser ru = new SmRoleUser();
+		ru.setUserId(sm.getId());
+		ru.setRoleId(role.getId());
+		smRoleUserRepository.save(ru);
+
+		MockHttpSession userSession = loginZhangsan();
+		mockMvc.perform(get("/api/permissions/menus/visible").param("clientType", "1").session(userSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].id").value(menu.getId().intValue()));
+	}
+
+	@Test
+	void admin_canListRoleSelectOptions() throws Exception {
+		AppRole role = new AppRole();
+		role.setCode("opt_r");
+		role.setName("可选角色");
+		role.setStatus("1");
+		role.setSequ(0);
+		role.setIsInner("0");
+		role.setIsViewAll("0");
+		appRoleRepository.save(role);
+
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+
+		MockHttpSession adminSession = loginZhangsan();
+		mockMvc.perform(get("/api/admin/roles/select-options").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].id").value(role.getId().intValue()))
+				.andExpect(jsonPath("$.data[0].code").value("opt_r"))
+				.andExpect(jsonPath("$.data[0].name").value("可选角色"));
+	}
+
+	@Test
+	void admin_canListMenuOpSelectOptions() throws Exception {
+		AppMenu menu = new AppMenu();
+		menu.setName("菜单A");
+		menu.setMenuType(Constants.MENU_TYPE_EMP);
+		menu.setClientType("1");
+		menu.setStatus("1");
+		menu.setSequ(0);
+		appMenuRepository.save(menu);
+
+		AppOpSecurity op = new AppOpSecurity();
+		op.setMenu(menu);
+		op.setCode("VIEW_A");
+		op.setName("查看");
+		op.setStatus("1");
+		op.setSequ(0);
+		appOpSecurityRepository.save(op);
+
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+
+		MockHttpSession adminSession = loginZhangsan();
+		mockMvc.perform(get("/api/admin/menu-ops/select-options").param("clientType", "1").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].id").value(op.getId().intValue()))
+				.andExpect(jsonPath("$.data[0].code").value("VIEW_A"))
+				.andExpect(jsonPath("$.data[0].menuName").value("菜单A"));
+	}
+
+	@Test
+	void admin_canListMenuTreeRows() throws Exception {
+		AppMenu parent = new AppMenu();
+		parent.setName("父菜单");
+		parent.setMenuType(Constants.MENU_TYPE_EMP);
+		parent.setClientType("1");
+		parent.setStatus("1");
+		parent.setSequ(0);
+		appMenuRepository.save(parent);
+
+		AppMenu child = new AppMenu();
+		child.setName("子菜单");
+		child.setMenuType(Constants.MENU_TYPE_EMP);
+		child.setClientType("1");
+		child.setStatus("1");
+		child.setSequ(0);
+		child.setParent(parent);
+		appMenuRepository.save(child);
+
+		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
+		adminUser.setUserType((short) 9);
+		smUserRepository.save(adminUser);
+
+		MockHttpSession adminSession = loginZhangsan();
+		mockMvc.perform(get("/api/admin/menus/tree-rows").param("clientType", "1").session(adminSession))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data[0].name").value("父菜单"))
+				.andExpect(jsonPath("$.data[1].name").value("子菜单"))
+				.andExpect(jsonPath("$.data[1].parentId").value(parent.getId().intValue()));
 	}
 }

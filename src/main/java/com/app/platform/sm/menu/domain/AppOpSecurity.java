@@ -102,4 +102,24 @@ public class AppOpSecurity {
 	public void setStatus(String status) {
 		this.status = status;
 	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public int getSequ() {
+		return sequ;
+	}
+
+	public void setSequ(int sequ) {
+		this.sequ = sequ;
+	}
+
+	public void setId(Long id) {
+		this.id = id;
+	}
 }
