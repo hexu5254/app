@@ -21,8 +21,11 @@ import com.app.platform.sm.menu.repository.AppOpSecurityRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -224,6 +227,10 @@ public class AdminMenuService {
 			throw new MenuNotFoundException();
 		}
 		List<AdminMenuOpUpsertItem> items = req.items();
+		boolean hasView = items.stream().anyMatch(i -> "VIEW".equalsIgnoreCase(i.code().trim()));
+		if (!hasView) {
+			throw new BadRequestException("菜单须至少包含 VIEW（查看）操作码");
+		}
 		Set<String> codesSeen = new HashSet<>();
 		Set<Long> keptIds = new HashSet<>();
 		for (AdminMenuOpUpsertItem item : items) {
@@ -299,25 +306,54 @@ public class AdminMenuService {
 		return new AdminMenuOpDefDto(o.getId(), o.getCode(), n == null ? "" : n, o.getSequ(), o.getStatus());
 	}
 
+	/**
+	 * 逻辑删除菜单及其整棵子树：先停用各节点下默认操作码（groupId 为空），再自叶向根逻辑删除菜单。
+	 */
 	@Transactional
 	public void deleteLogical(long id) {
-		AppMenu m = appMenuRepository.findById(id).orElseThrow(MenuNotFoundException::new);
-		if (MENU_STATUS_DELETED.equals(m.getStatus())) {
+		AppMenu root = appMenuRepository.findById(id).orElseThrow(MenuNotFoundException::new);
+		if (MENU_STATUS_DELETED.equals(root.getStatus())) {
 			throw new MenuNotFoundException();
 		}
-		if (appMenuRepository.countByParent_IdAndStatus(id, MENU_STATUS_NORMAL) > 0) {
-			throw new BadRequestException("存在未删除的子菜单，无法删除");
-		}
-		if (appOpSecurityRepository.countByMenu_IdAndStatus(id, MENU_STATUS_NORMAL) > 0) {
-			throw new BadRequestException("菜单下仍有关联操作权限，请先清理");
-		}
-		m.setStatus(MENU_STATUS_DELETED);
+		List<Long> bfsOrder = collectSubtreeMenuIdsBfs(id);
+		List<Long> leafToRoot = new ArrayList<>(bfsOrder);
+		Collections.reverse(leafToRoot);
 		Long uid = UserManager.getLoginUserId();
-		if (uid != null) {
-			m.setModifyierId(uid);
+		for (Long mid : bfsOrder) {
+			for (AppOpSecurity o : appOpSecurityRepository.findByMenu_IdAndGroupIdIsNullOrderBySequAscIdAsc(mid)) {
+				if (MENU_STATUS_NORMAL.equals(o.getStatus())) {
+					o.setStatus(MENU_STATUS_DELETED);
+					appOpSecurityRepository.save(o);
+				}
+			}
+			opAssignCache.evictMenu(mid);
 		}
-		appMenuRepository.save(m);
-		opAssignCache.evictMenu(id);
+		for (Long mid : leafToRoot) {
+			AppMenu m = appMenuRepository.findById(mid).orElse(null);
+			if (m != null && MENU_STATUS_NORMAL.equals(m.getStatus())) {
+				m.setStatus(MENU_STATUS_DELETED);
+				if (uid != null) {
+					m.setModifyierId(uid);
+				}
+				appMenuRepository.save(m);
+			}
+		}
+		opAssignCache.evictAll();
+	}
+
+	/** 含根节点；仅 status=正常的子节点；BFS 顺序为根先、叶后。 */
+	private List<Long> collectSubtreeMenuIdsBfs(long rootId) {
+		List<Long> order = new ArrayList<>();
+		Deque<Long> q = new ArrayDeque<>();
+		q.add(rootId);
+		while (!q.isEmpty()) {
+			Long cur = q.removeFirst();
+			order.add(cur);
+			for (AppMenu child : appMenuRepository.findByParent_IdAndStatus(cur, MENU_STATUS_NORMAL)) {
+				q.add(child.getId());
+			}
+		}
+		return order;
 	}
 
 	private boolean wouldCreateCycle(long selfId, long newParentId) {

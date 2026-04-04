@@ -192,7 +192,7 @@ class AuthIntegrationTest {
 		Long newUserId = smUserRepository.findByCodeIgnoreCase("newuser").orElseThrow().getId();
 		assertThat(sysEmployeeRepository.findById(newUserId)).isPresent();
 		var normalRole = appRoleRepository.findByCode(Constants.APP_ROLE_CODE_NORMAL_USER);
-		assertThat(normalRole).as("Flyway V4 须提供 app_role normal_user").isPresent();
+		assertThat(normalRole).as("本用例已补建 app_role normal_user").isPresent();
 		assertThat(smRoleUserRepository.findByUserId(newUserId))
 				.extracting(SmRoleUser::getRoleId)
 				.contains(normalRole.get().getId());

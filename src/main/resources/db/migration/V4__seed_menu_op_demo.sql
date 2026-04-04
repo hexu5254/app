@@ -1,62 +1,131 @@
--- 演示数据：与前端路由 meta.menuId=10001（工作台）对齐；Flyway 仅执行一次。
--- 角色 code：normal_user（普通用户，部分操作码；注册默认角色）、admin（管理员，菜单 10001 全量）。
+-- =============================================================================
+-- 初始化种子（可重复执行）
+--
+-- 内容：
+--   1) 应用角色 super_admin，固定主键 id = 1（登录后会话 IS_ADMIN_EMP，见 Java Constants）
+--   2) 应用角色 normal_user，固定主键 id = 2（与注册默认绑定 code 一致）
+--   3) 账号 superadmin / 密码 a888888，固定 sm_user.id = 1，并写 sys_employee、sm_role_user
+--
+-- 首页入口由前端 MainLayout 固定，不在此插入 app_menu。其它菜单与操作码请在管理端配置。
+-- =============================================================================
 
-INSERT INTO app_menu (id, parent_id, name, path, icon, menu_type, client_type, sequ, status, control_type)
-VALUES
-    (10001, NULL, '工作台', '/workbench', NULL, '2', '1', 10, '1', NULL),
-    (10002, NULL, '示例列表页', '/demo/list', NULL, '2', '1', 20, '1', NULL)
-ON CONFLICT (id) DO NOTHING;
+-- ---------------------------------------------------------------------------
+-- 1. 清理：固定主键 / 遗留演示菜单 id=10001（若曾由旧种子插入）
+-- ---------------------------------------------------------------------------
 
-SELECT setval(pg_get_serial_sequence('app_menu', 'id'), (SELECT COALESCE(MAX(id), 1) FROM app_menu));
+DELETE FROM sm_user WHERE id = 1;
 
-INSERT INTO app_op_security (menu_id, code, name, group_id, sequ, status)
-VALUES
-    (10001, 'ADD', '新增', NULL, 1, '1'),
-    (10001, 'EDIT', '编辑', NULL, 2, '1'),
-    (10001, 'DELETE', '删除', NULL, 3, '1'),
-    (10001, 'EXPORT', '导出', NULL, 4, '1'),
-    (10001, 'VIEW', '查看', NULL, 5, '1'),
-    (10002, 'ADD', '新增', NULL, 1, '1'),
-    (10002, 'VIEW', '查看', NULL, 2, '1')
-ON CONFLICT (menu_id, code) DO NOTHING;
+DELETE FROM app_role WHERE id = 1;
 
-SELECT setval(pg_get_serial_sequence('app_op_security', 'id'), (SELECT COALESCE(MAX(id), 1) FROM app_op_security));
+DELETE FROM app_menu WHERE id = 10001;
 
-INSERT INTO app_role (code, name, role_desc, sequ, is_inner, is_view_all, status,
-                      validated_start_date, validated_end_date)
-VALUES
-    ('normal_user', '普通用户', '工作台：ADD+VIEW+EDIT；无 DELETE/EXPORT', 100, '0', '0', '1', NULL, NULL),
-    ('admin', '管理员', '工作台全部操作码（应用角色，与 user_type=9 平台管理员不同）', 101, '0', '0', '1', NULL, NULL)
+-- ---------------------------------------------------------------------------
+-- 2. 超级管理员角色（固定 id = 1）
+-- ---------------------------------------------------------------------------
+
+INSERT INTO app_role (
+    id,
+    code,
+    name,
+    role_desc,
+    sequ,
+    is_inner,
+    is_view_all,
+    status,
+    validated_start_date,
+    validated_end_date
+)
+VALUES (
+    1,
+    'super_admin',
+    '超级管理员',
+    '平台超级管理员：登录后会话等同 IS_ADMIN_EMP，可见全部业务菜单；请在页面配置菜单与操作码。',
+    0,
+    '0',
+    '0',
+    '1',
+    NULL,
+    NULL
+);
+
+-- ---------------------------------------------------------------------------
+-- 2b. 普通用户角色（注册默认绑定；code = normal_user，与 Java Constants 一致）
+--     不放入上文「清理」段：避免重复执行时级联删掉已注册用户的角色关联。
+--     已存在同 code 时跳过（例如历史库 id 非 2）。
+-- ---------------------------------------------------------------------------
+
+INSERT INTO app_role (
+    id,
+    code,
+    name,
+    role_desc,
+    sequ,
+    is_inner,
+    is_view_all,
+    status,
+    validated_start_date,
+    validated_end_date
+)
+VALUES (
+    2,
+    'normal_user',
+    '普通用户',
+    '注册新用户时默认绑定；菜单与操作码由管理员在页面配置。',
+    100,
+    '0',
+    '0',
+    '1',
+    NULL,
+    NULL
+)
 ON CONFLICT (code) DO NOTHING;
 
 SELECT setval(pg_get_serial_sequence('app_role', 'id'), (SELECT COALESCE(MAX(id), 1) FROM app_role));
 
-INSERT INTO app_op_assign (role_id, op_id)
-SELECT r.id, o.id
-FROM app_role r
-JOIN app_op_security o ON o.menu_id = 10001 AND o.group_id IS NULL AND o.status = '1'
-    AND o.code IN ('ADD', 'EDIT', 'VIEW')
-WHERE r.code = 'normal_user'
-ON CONFLICT (role_id, op_id) DO NOTHING;
+-- ---------------------------------------------------------------------------
+-- 3. 超级管理员账号 superadmin / a888888（固定 sm_user.id = 1）
+--    密码：BCrypt strength=10，明文 a888888
+-- ---------------------------------------------------------------------------
 
-INSERT INTO app_op_assign (role_id, op_id)
-SELECT r.id, o.id
-FROM app_role r
-JOIN app_op_security o ON o.menu_id = 10001 AND o.group_id IS NULL AND o.status = '1'
-WHERE r.code = 'admin'
-ON CONFLICT (role_id, op_id) DO NOTHING;
+INSERT INTO sm_user (
+    id,
+    code,
+    name,
+    password_bcrypt,
+    user_type,
+    status,
+    failed_login_count
+)
+VALUES (
+    1,
+    'superadmin',
+    '超级管理员',
+    '$2a$10$ETOF1qqIZqRdThuujggPCeXDpiATxAKfiHNONAz3p3FHE1TWwMsga',
+    0,
+    '1',
+    0
+);
 
-INSERT INTO app_op_assign (role_id, op_id)
-SELECT r.id, o.id
-FROM app_role r
-JOIN app_op_security o ON o.menu_id = 10002 AND o.group_id IS NULL AND o.status = '1'
-WHERE r.code = 'normal_user'
-ON CONFLICT (role_id, op_id) DO NOTHING;
+SELECT setval(pg_get_serial_sequence('sm_user', 'id'), (SELECT COALESCE(MAX(id), 1) FROM sm_user));
 
--- 若存在 sm_user.id = 1，挂上 normal_user（首账号开箱验证）
+INSERT INTO sys_employee (
+    id,
+    status,
+    code,
+    name,
+    user_id
+)
+VALUES (
+    1,
+    '1',
+    'superadmin',
+    '超级管理员',
+    1
+);
+
+-- ---------------------------------------------------------------------------
+-- 4. 超级管理员与角色绑定（user_id = 1，role_id = 1）
+-- ---------------------------------------------------------------------------
+
 INSERT INTO sm_role_user (user_id, role_id)
-SELECT u.id, r.id
-FROM sm_user u
-CROSS JOIN app_role r
-WHERE u.id = 1 AND r.code = 'normal_user'
-ON CONFLICT DO NOTHING;
+VALUES (1, 1);

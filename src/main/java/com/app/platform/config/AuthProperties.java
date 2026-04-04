@@ -29,11 +29,6 @@ public class AuthProperties {
 	 */
 	private List<Long> adminUserIds = new ArrayList<>();
 
-	/**
-	 * 与参考「企业管理员主键」一致：该 {@code sm_user.id} 登录后带 {@code IS_ADMIN_EMP}。测试可设为 -1 避免首个自增用户被误判。
-	 */
-	private long enterpriseAdminUserId = 1L;
-
 	private static List<String> defaultAnonymousPaths() {
 		List<String> list = new ArrayList<>();
 		list.add("POST:/api/auth/register");
@@ -91,13 +86,5 @@ public class AuthProperties {
 
 	public void setAdminUserIds(List<Long> adminUserIds) {
 		this.adminUserIds = adminUserIds;
-	}
-
-	public long getEnterpriseAdminUserId() {
-		return enterpriseAdminUserId;
-	}
-
-	public void setEnterpriseAdminUserId(long enterpriseAdminUserId) {
-		this.enterpriseAdminUserId = enterpriseAdminUserId;
 	}
 }

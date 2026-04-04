@@ -15,6 +15,7 @@ public interface IUser extends Serializable {
 	String CODE = "code";
 	String NAME = "name";
 	String USERTYPE = "user_type";
+	/** 平台管理会话标记：由 {@code user_type=9} 或 {@link Constants#APP_ROLE_CODE_SUPER_ADMIN} 角色注入。 */
 	String IS_ADMIN_EMP = "is_admin_emp";
 	String ROLE_LIST = "ROLE_LIST";
 	String DEPT_ID = "dept_id";

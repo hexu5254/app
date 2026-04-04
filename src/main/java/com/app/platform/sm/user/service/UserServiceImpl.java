@@ -5,7 +5,6 @@ import com.app.platform.core.authentication.RoleSnapshot;
 import com.app.platform.core.authentication.ThreadLocalManager;
 import com.app.platform.core.authentication.impl.User;
 import com.app.platform.core.authentication.intf.IUser;
-import com.app.platform.config.AuthProperties;
 import com.app.platform.org.employee.domain.SysEmployee;
 import com.app.platform.org.employee.service.SysEmployeeService;
 import com.app.platform.sm.role.service.AppRoleService;
@@ -17,7 +16,6 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service("userServiceImpl")
 public class UserServiceImpl implements IUserService {
@@ -26,15 +24,13 @@ public class UserServiceImpl implements IUserService {
 	private final SysEmployeeService sysEmployeeService;
 	private final AppRoleService appRoleService;
 	private final UserLoginPersistence userLoginPersistence;
-	private final AuthProperties authProperties;
 
 	public UserServiceImpl(SmUserRepository smUserRepository, SysEmployeeService sysEmployeeService,
-			AppRoleService appRoleService, UserLoginPersistence userLoginPersistence, AuthProperties authProperties) {
+			AppRoleService appRoleService, UserLoginPersistence userLoginPersistence) {
 		this.smUserRepository = smUserRepository;
 		this.sysEmployeeService = sysEmployeeService;
 		this.appRoleService = appRoleService;
 		this.userLoginPersistence = userLoginPersistence;
-		this.authProperties = authProperties;
 	}
 
 	@Override
@@ -81,11 +77,9 @@ public class UserServiceImpl implements IUserService {
 		if (userType != Constants.USER_TYPE_SYS_ADMIN) {
 			List<RoleSnapshot> roles = appRoleService.getUserRoles(userId);
 			user.setProperty(IUser.ROLE_LIST, roles);
-		}
-
-		if (authProperties.getEnterpriseAdminUserId() >= 0
-				&& Objects.equals(userId, authProperties.getEnterpriseAdminUserId())) {
-			user.setProperty(IUser.IS_ADMIN_EMP, Boolean.TRUE);
+			if (roles.stream().anyMatch(r -> Constants.APP_ROLE_CODE_SUPER_ADMIN.equals(r.code()))) {
+				user.setProperty(IUser.IS_ADMIN_EMP, Boolean.TRUE);
+			}
 		}
 	}
 
