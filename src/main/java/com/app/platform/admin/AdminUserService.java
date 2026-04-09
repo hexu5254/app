@@ -39,11 +39,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 管理端用户生命周期：分页查询、创建/修改、重置密码、替换角色、逻辑删除；同步 sys_employee 与权限缓存。
+ */
 @Service
 public class AdminUserService {
 
 	private static final Logger log = LoggerFactory.getLogger(AdminUserService.class);
 
+	/** 允许前端传入的排序字段白名单，防止属性注入。 */
 	private static final Set<String> ALLOWED_SORT = Set.of("code", "name", "id", "createTime", "modifyTime", "status");
 
 	private final SmUserRepository smUserRepository;
@@ -64,6 +68,7 @@ public class AdminUserService {
 		this.opAssignCache = opAssignCache;
 	}
 
+	/** 动态 Specification 分页列表，聚合角色与员工信息到行 DTO。 */
 	@Transactional(readOnly = true)
 	public AdminUserPageDto list(int page, int size, String sortParam, String keyword, String status, Long roleId,
 			Long deptId) {
@@ -79,6 +84,7 @@ public class AdminUserService {
 		return new AdminUserPageDto(rows, pg.getTotalElements(), pg.getTotalPages(), pg.getNumber(), pg.getSize());
 	}
 
+	/** 单条详情；已逻辑删除用户视为不存在。 */
 	@Transactional(readOnly = true)
 	public AdminUserRowDto getById(long id) {
 		SmUser sm = smUserRepository.findById(id).orElseThrow(UserNotFoundException::new);
@@ -88,6 +94,7 @@ public class AdminUserService {
 		return toRow(sm);
 	}
 
+	/** 新建账号 + 员工行 + 角色关联；编码唯一校验。 */
 	@Transactional
 	public AdminUserRowDto create(AdminCreateUserRequest req) {
 		if (smUserRepository.existsByCodeIgnoreCase(req.code())) {
@@ -128,6 +135,7 @@ public class AdminUserService {
 		return toRow(smUserRepository.findById(sm.getId()).orElseThrow());
 	}
 
+	/** 部分更新用户与关联员工档案（若存在）。 */
 	@Transactional
 	public AdminUserRowDto patch(long id, AdminPatchUserRequest req) {
 		SmUser sm = smUserRepository.findById(id).orElseThrow(UserNotFoundException::new);
@@ -166,6 +174,7 @@ public class AdminUserService {
 		return toRow(smUserRepository.findById(id).orElseThrow());
 	}
 
+	/** 重置 bcrypt 密码；可选强制下次登录改密（user_ex1 标记）。 */
 	@Transactional
 	public void resetPassword(long id, AdminResetPasswordRequest req) {
 		SmUser sm = smUserRepository.findById(id).orElseThrow(UserNotFoundException::new);
@@ -183,6 +192,7 @@ public class AdminUserService {
 		log.info("admin reset password operatorId={} targetUserId={}", UserManager.getLoginUserId(), id);
 	}
 
+	/** 全量替换用户-角色关联并失效其操作码缓存。 */
 	@Transactional
 	public List<Long> replaceRoles(long id, AdminReplaceRolesRequest req) {
 		SmUser sm = smUserRepository.findById(id).orElseThrow(UserNotFoundException::new);
@@ -197,6 +207,7 @@ public class AdminUserService {
 		return req.roleIds();
 	}
 
+	/** 逻辑删除用户与员工，并清理角色与缓存。 */
 	@Transactional
 	public void deleteLogical(long id) {
 		SmUser sm = smUserRepository.findById(id).orElseThrow(UserNotFoundException::new);
@@ -211,6 +222,7 @@ public class AdminUserService {
 		log.info("admin delete user operatorId={} targetUserId={}", UserManager.getLoginUserId(), id);
 	}
 
+	/** 校验角色 id 均存在且状态为启用。 */
 	private void validateRoleIds(List<Long> roleIds) {
 		if (roleIds == null || roleIds.isEmpty()) {
 			return;
@@ -226,6 +238,7 @@ public class AdminUserService {
 		}
 	}
 
+	/** 去重后写入 sm_role_user。 */
 	private void saveRoleAssignments(long userId, List<Long> roleIds) {
 		if (roleIds == null || roleIds.isEmpty()) {
 			return;
@@ -238,6 +251,7 @@ public class AdminUserService {
 		}
 	}
 
+	/** 解析 {@code field,(asc|desc)}，非法字段回退 code 升序。 */
 	private Sort parseSort(String sortParam) {
 		if (sortParam == null || sortParam.isBlank()) {
 			return Sort.by(Sort.Direction.ASC, "code");
@@ -254,6 +268,7 @@ public class AdminUserService {
 		return Sort.by(dir, prop);
 	}
 
+	/** 组装列表行：员工部门、角色 id/名称、登录风控字段。 */
 	private AdminUserRowDto toRow(SmUser sm) {
 		SysEmployee emp = sysEmployeeRepository.findById(sm.getId()).orElse(null);
 		List<SmRoleUser> links = smRoleUserRepository.findByUserId(sm.getId());

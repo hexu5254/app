@@ -14,6 +14,7 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/** 角色被授予某条 {@link AppOpSecurity} 的关联记录。 */
 @Entity
 @Table(name = "app_op_assign")
 public class AppOpAssign {
@@ -36,6 +37,7 @@ public class AppOpAssign {
 	@Column(name = "create_time", nullable = false)
 	private Instant createTime;
 
+	/** 分配行首次保存时写入创建时间。 */
 	@PrePersist
 	void prePersist() {
 		if (createTime == null) {

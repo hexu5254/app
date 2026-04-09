@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 挂在某菜单下的安全操作（按钮/接口级权限点）；{@code groupId} 非空时表示分组行。
+ */
 @Entity
 @Table(name = "app_op_security")
 public class AppOpSecurity {
@@ -26,12 +29,14 @@ public class AppOpSecurity {
 	@JoinColumn(name = "menu_id", nullable = false)
 	private AppMenu menu;
 
+	/** 操作编码，与前端/注解中使用的权限码一致。 */
 	@Column(nullable = false, length = 64)
 	private String code;
 
 	@Column(length = 128)
 	private String name;
 
+	/** 分组 id；为空表示菜单下默认/顶层操作行。 */
 	@Column(name = "group_id")
 	private Long groupId;
 
@@ -53,6 +58,7 @@ public class AppOpSecurity {
 	@Column(name = "modify_time", nullable = false)
 	private Instant modifyTime;
 
+	/** 新建时写入创建时间与修改时间。 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -62,6 +68,7 @@ public class AppOpSecurity {
 		modifyTime = now;
 	}
 
+	/** 更新时刷新修改时间。 */
 	@PreUpdate
 	void preUpdate() {
 		modifyTime = Instant.now();

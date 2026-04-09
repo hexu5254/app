@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.util.ArrayList;
 import java.util.List;
 
+/** 绑定 {@code app.auth.*}：会话、锁定策略、匿名路径与管理员 ID。 */
 @ConfigurationProperties(prefix = "app.auth")
 public class AuthProperties {
 
@@ -13,6 +14,7 @@ public class AuthProperties {
 	 */
 	private String sessionAttributeName = "user";
 
+	// BCrypt 强度，越高越慢越难暴力破解
 	private int bcryptStrength = 10;
 
 	private int maxFailedLogins = 5;
@@ -29,6 +31,7 @@ public class AuthProperties {
 	 */
 	private List<Long> adminUserIds = new ArrayList<>();
 
+	/** 内置默认白名单：注册登录与健康检查等。 */
 	private static List<String> defaultAnonymousPaths() {
 		List<String> list = new ArrayList<>();
 		list.add("POST:/api/auth/register");

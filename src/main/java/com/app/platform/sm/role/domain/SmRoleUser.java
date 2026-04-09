@@ -10,6 +10,10 @@ import java.io.Serial;
 import java.io.Serializable;
 import java.util.Objects;
 
+/**
+ * 用户-角色关联实体，对应表 {@code sm_role_user}。
+ * 复合主键由 {@link SmRoleUserId} 描述。
+ */
 @Entity
 @Table(name = "sm_role_user")
 @IdClass(SmRoleUser.SmRoleUserId.class)
@@ -39,6 +43,9 @@ public class SmRoleUser {
 		this.roleId = roleId;
 	}
 
+	/**
+	 * JPA {@code @IdClass} 所需的复合主键类型，字段名须与实体 id 属性一致。
+	 */
 	public static final class SmRoleUserId implements Serializable {
 
 		@Serial

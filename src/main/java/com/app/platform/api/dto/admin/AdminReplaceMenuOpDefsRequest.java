@@ -9,6 +9,7 @@ import java.util.List;
  */
 public record AdminReplaceMenuOpDefsRequest(@Valid List<AdminMenuOpUpsertItem> items) {
 	public AdminReplaceMenuOpDefsRequest {
+		// 防御性拷贝，避免外部修改传入列表
 		items = items == null ? List.of() : List.copyOf(items);
 	}
 }

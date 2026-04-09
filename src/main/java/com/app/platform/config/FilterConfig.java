@@ -9,9 +9,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 
+/** 注册 Servlet Filter 链顺序：先绑定用户上下文，再鉴权，再管理端二次校验。 */
 @Configuration
 public class FilterConfig {
 
+	/** Session → ThreadLocal，优先级最高业务 Filter 之一。 */
 	@Bean
 	public FilterRegistrationBean<AuthContextFilter> authContextFilterRegistration() {
 		FilterRegistrationBean<AuthContextFilter> bean = new FilterRegistrationBean<>();
@@ -21,6 +23,7 @@ public class FilterConfig {
 		return bean;
 	}
 
+	/** /api/** 登录门槛（除白名单）。 */
 	@Bean
 	public FilterRegistrationBean<ApiAccessControlFilter> apiAccessControlFilterRegistration(
 			AuthProperties authProperties,
@@ -32,6 +35,7 @@ public class FilterConfig {
 		return bean;
 	}
 
+	/** /api/admin/** 平台管理员校验。 */
 	@Bean
 	public FilterRegistrationBean<AdminAuthorizationFilter> adminAuthorizationFilterRegistration(
 			AuthProperties authProperties,

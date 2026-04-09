@@ -26,6 +26,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 认证相关集成测试：登录、会话、登出、注册及 Actuator 匿名访问等。
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -49,6 +52,7 @@ class AuthIntegrationTest {
 	@Autowired
 	private SmRoleUserRepository smRoleUserRepository;
 
+	/** 每个用例前清空用户/员工并插入标准测试账号「zhangsan」。 */
 	@BeforeEach
 	void resetData() {
 		sysEmployeeRepository.deleteAll();
@@ -72,6 +76,7 @@ class AuthIntegrationTest {
 		sysEmployeeRepository.save(emp);
 	}
 
+	/** AC1：正确登录后同一会话可访问 /me。 */
 	@Test
 	void ac1_correctLogin_thenMe() throws Exception {
 		MockHttpSession sessionBefore = new MockHttpSession();
@@ -93,6 +98,7 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.data.loginName").value("zhangsan"));
 	}
 
+	/** AC2：错误密码与不存在用户返回相同提示，避免枚举有效账号。 */
 	@Test
 	void ac2_wrongPassword_sameMessageAsMissingUser() throws Exception {
 		mockMvc.perform(post("/api/auth/login")
@@ -110,6 +116,7 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.message").value("账号或密码错误"));
 	}
 
+	/** AC4：冻结用户无法登录。 */
 	@Test
 	void ac4_disabledUser() throws Exception {
 		SmUser u = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
@@ -123,6 +130,7 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.message").value("账号或密码错误"));
 	}
 
+	/** AC6：登出后会话失效，再访问 /me 返回 401。 */
 	@Test
 	void ac6_logoutThenMe401() throws Exception {
 		var loginResult = mockMvc.perform(post("/api/auth/login")
@@ -142,6 +150,7 @@ class AuthIntegrationTest {
 				.andExpect(status().isUnauthorized());
 	}
 
+	/** AC7：无会话访问 /me 应未授权。 */
 	@Test
 	void ac7_meWithoutSession401() throws Exception {
 		mockMvc.perform(get("/api/auth/me"))
@@ -149,12 +158,14 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
 	}
 
+	/** Actuator 健康检查允许匿名。 */
 	@Test
 	void actuatorHealthAnonymous() throws Exception {
 		mockMvc.perform(get("/actuator/health"))
 				.andExpect(status().isOk());
 	}
 
+	/** 登录请求参数校验失败时返回 400 与校验错误码。 */
 	@Test
 	void validationError400() throws Exception {
 		mockMvc.perform(post("/api/auth/login")
@@ -164,6 +175,7 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 	}
 
+	/** 注册成功创建用户与员工，并绑定默认角色（无种子时本地补建角色）。 */
 	@Test
 	void registerCreatesUser_201() throws Exception {
 		sysEmployeeRepository.deleteAll();
@@ -198,6 +210,7 @@ class AuthIntegrationTest {
 				.contains(normalRole.get().getId());
 	}
 
+	/** 重复注册同一登录名返回 409。 */
 	@Test
 	void registerDuplicate_409() throws Exception {
 		mockMvc.perform(post("/api/auth/register")
@@ -208,6 +221,7 @@ class AuthIntegrationTest {
 				.andExpect(jsonPath("$.message").value("用户名已被使用"));
 	}
 
+	/** 注册接口不应建立登录会话。 */
 	@Test
 	void registerDoesNotCreateSession() throws Exception {
 		sysEmployeeRepository.deleteAll();

@@ -3,6 +3,9 @@ package com.app.platform.api.dto.admin;
 import java.time.Instant;
 import java.util.List;
 
+/**
+ * 管理端用户单行：含组织、角色、最近登录与锁定截止时间等审计信息。
+ */
 public record AdminUserRowDto(
 		long id,
 		String code,

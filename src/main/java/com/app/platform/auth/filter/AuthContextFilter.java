@@ -24,6 +24,7 @@ public class AuthContextFilter extends OncePerRequestFilter {
 			HttpSession session = request.getSession(false);
 			if (session != null) {
 				Object raw = session.getAttribute(Constants.SESSION_USER);
+				// 仅接受 IUser 实现，忽略异常 Session 属性
 				if (raw instanceof IUser iu) {
 					ThreadLocalManager.setUserLocal(iu);
 				}
@@ -31,6 +32,7 @@ public class AuthContextFilter extends OncePerRequestFilter {
 			filterChain.doFilter(request, response);
 		}
 		finally {
+			// 与线程池配合：必须释放 ThreadLocal
 			ThreadLocalManager.clearUserLocal();
 		}
 	}

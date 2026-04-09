@@ -24,6 +24,7 @@ public class OperationPermissionEvaluator {
 	private final OpAssignCache opAssignCache;
 	private final IUserService userService;
 
+	/** 注入菜单、操作定义、缓存与 IUser 装载服务。 */
 	public OperationPermissionEvaluator(AppMenuRepository appMenuRepository,
 			AppOpSecurityRepository appOpSecurityRepository,
 			OpAssignCache opAssignCache,
@@ -34,6 +35,7 @@ public class OperationPermissionEvaluator {
 		this.userService = userService;
 	}
 
+	/** 基于当前 Session 用户解析 originType 后计算某菜单下可见操作码。 */
 	public List<String> getOpCodesForCurrentUser(Long menuId) {
 		if (UserManager.isAnonymous()) {
 			return List.of();
@@ -58,6 +60,7 @@ public class OperationPermissionEvaluator {
 			return List.of();
 		}
 		AppMenu menu = menuOpt.get();
+		// 停用菜单不返回任何操作
 		if (!"1".equals(menu.getStatus())) {
 			return List.of();
 		}
@@ -87,6 +90,7 @@ public class OperationPermissionEvaluator {
 			return loadAssigned(userId, menuId);
 		}
 		if (Constants.MENU_TYPE_SUPER_ADMIN.equals(menuType)) {
+			// 超管菜单仅 user_type=9 可见全量操作
 			if (user.isSuperAdmin()) {
 				return loadAllMenuOps(menuId);
 			}
@@ -99,6 +103,7 @@ public class OperationPermissionEvaluator {
 		return loadAssigned(userId, menuId);
 	}
 
+	/** 判断当前用户是否拥有指定操作码（忽略大小写）。 */
 	public boolean isOpAllowForCurrentUser(Long menuId, String opCode) {
 		if (opCode == null || opCode.isBlank()) {
 			return false;
@@ -119,10 +124,12 @@ public class OperationPermissionEvaluator {
 		return codes.stream().anyMatch(c -> c.equalsIgnoreCase(normalized));
 	}
 
+	/** 管理员/满足菜单类型时：该菜单下全部启用操作码（走缓存）。 */
 	private List<String> loadAllMenuOps(long menuId) {
 		return opAssignCache.getMenuOpCodes(menuId, () -> appOpSecurityRepository.findAllActiveOpCodesForMenu(menuId));
 	}
 
+	/** 普通用户：角色+分配表交集得到的操作码（走缓存）。 */
 	private List<String> loadAssigned(long userId, long menuId) {
 		return opAssignCache.getAssignedOpCodes(userId, menuId,
 				() -> appOpSecurityRepository.findAssignedOpCodesForUserAndMenu(userId, menuId));

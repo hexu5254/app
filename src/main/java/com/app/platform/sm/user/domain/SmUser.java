@@ -13,6 +13,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+/** 平台登录账号实体：多版本密码字段、状态与审计时间戳。 */
 @Entity
 @Table(name = "sm_user", uniqueConstraints = @UniqueConstraint(name = "uq_sm_user_code", columnNames = "code"))
 public class SmUser {
@@ -27,6 +28,7 @@ public class SmUser {
 	@Column(length = 128)
 	private String name;
 
+	// 历史 MD5 / SHA / 现代 bcrypt 三选一有值即可登录校验
 	@Column(length = 64)
 	private String password;
 
@@ -72,6 +74,7 @@ public class SmUser {
 	@Column(name = "client_type", precision = 19)
 	private BigDecimal clientType;
 
+	// 审计字段
 	@Column(name = "creator_id")
 	private Long creatorId;
 
@@ -84,6 +87,7 @@ public class SmUser {
 	@Column(name = "modify_time", nullable = false)
 	private Instant modifyTime;
 
+	/** 新建记录时若未设 create_time 则填当前时间，并同步 modify_time。 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -93,6 +97,7 @@ public class SmUser {
 		modifyTime = now;
 	}
 
+	/** 每次更新刷新 modify_time。 */
 	@PreUpdate
 	void preUpdate() {
 		modifyTime = Instant.now();

@@ -12,6 +12,7 @@ public class JacksonConfig {
 	 */
 	@Bean
 	public ObjectMapper objectMapper() {
+		// 默认实例；与 Spring MVC 消息转换器并存时需注意是否需 @Primary
 		return new ObjectMapper();
 	}
 }

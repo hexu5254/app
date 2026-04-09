@@ -2,6 +2,9 @@ package com.app.platform.api.dto.admin;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+/**
+ * 管理端 PATCH 用户：标准 JavaBean，仅非空字段参与更新；null 字段由 Jackson 忽略策略配合。
+ */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class AdminPatchUserRequest {
 

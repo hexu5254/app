@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** 认证相关 REST：注册、登录、登出与当前用户查询。 */
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -27,17 +28,20 @@ public class AuthController {
 	private final LoginService loginService;
 	private final RegistrationService registrationService;
 
+	/** 注入登录与注册业务服务。 */
 	public AuthController(LoginService loginService, RegistrationService registrationService) {
 		this.loginService = loginService;
 		this.registrationService = registrationService;
 	}
 
+	/** 新用户注册，成功则返回会话信息（通常已等价于登录态）。 */
 	@PostMapping("/register")
 	public ResponseEntity<ApiSuccessBody<UserSessionDto>> register(@Valid @RequestBody RegisterRequest request) {
 		UserSessionDto data = registrationService.register(request);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiSuccessBody.of(data));
 	}
 
+	/** 用户名密码登录，服务端建立 Session。 */
 	@PostMapping("/login")
 	public ResponseEntity<ApiSuccessBody<UserSessionDto>> login(@Valid @RequestBody LoginRequest request,
 			HttpServletRequest httpRequest) {
@@ -45,12 +49,14 @@ public class AuthController {
 		return ResponseEntity.ok(ApiSuccessBody.of(data));
 	}
 
+	/** 销毁服务端 Session，客户端需丢弃 Cookie。 */
 	@PostMapping("/logout")
 	public ResponseEntity<LogoutResponse> logout(HttpServletRequest httpRequest) {
 		loginService.logout(httpRequest);
 		return ResponseEntity.ok(LogoutResponse.ok());
 	}
 
+	/** 返回当前登录用户摘要；未登录返回 401。 */
 	@GetMapping("/me")
 	public ResponseEntity<ApiSuccessBody<UserSessionDto>> me() {
 		IUser u = UserManager.getLoginUser();

@@ -11,6 +11,7 @@ public final class Constants {
 	/** HttpSession 中存放 {@link IUser} 的属性名（与历史基座 {@code Constants.SESSION_USER} 语义一致）。 */
 	public static final String SESSION_USER = "user";
 
+	// 登录渠道：Web 与客户端/API 区分审计与策略
 	public static final String LOGIN_TYPE_WEB = "WEB";
 	public static final String LOGIN_TYPE_CLIENT = "CLIENT";
 
@@ -33,13 +34,13 @@ public final class Constants {
 	/** 与参考 IUser.ORIGIN_TYPE 员工端一致 */
 	public static final String ORIGIN_TYPE_EMPLOYEE = "1";
 
-	/** app_menu.menu_type */
+	/** app_menu.menu_type：全员 / 管理端 / 员工端 / 超管菜单 */
 	public static final String MENU_TYPE_ALL = "0";
 	public static final String MENU_TYPE_ADMIN = "1";
 	public static final String MENU_TYPE_EMP = "2";
 	public static final String MENU_TYPE_SUPER_ADMIN = "3";
 
-	/** 批量查询菜单操作码上限 */
+	/** 批量查询菜单操作码上限，防止 IN 列表过大 */
 	public static final int MAX_MENU_IDS_BATCH = 50;
 
 	/** app_role.code：注册默认绑定（Flyway V4 种子插入 normal_user；若不存在则注册不自动挂角色） */

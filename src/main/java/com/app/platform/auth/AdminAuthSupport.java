@@ -4,6 +4,9 @@ import com.app.platform.core.authentication.intf.IUser;
 
 import java.util.List;
 
+/**
+ * 管理后台访问判定：配置白名单用户 ID 与 IUser 管理标记的并集。
+ */
 public final class AdminAuthSupport {
 
 	private AdminAuthSupport() {
@@ -16,6 +19,7 @@ public final class AdminAuthSupport {
 		if (user == null || user.getLoginUserId() == null) {
 			return false;
 		}
+		// 显式配置的超级用户列表优先命中
 		if (adminUserIds != null && adminUserIds.contains(user.getLoginUserId())) {
 			return true;
 		}

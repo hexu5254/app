@@ -28,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
+/** 应用角色维护：CRUD、菜单-操作授权替换及缓存失效。 */
 @Service
 public class AdminRoleService {
 
@@ -49,6 +50,7 @@ public class AdminRoleService {
 		this.opAssignCache = opAssignCache;
 	}
 
+	/** 分页列出全部角色（含已删除行的 status 展示）。 */
 	@Transactional(readOnly = true)
 	public Page<AdminRoleRowDto> list(int page, int size, String sort) {
 		Pageable pageable = PageRequest.of(page, size, parseSort(sort));
@@ -64,6 +66,7 @@ public class AdminRoleService {
 				.toList();
 	}
 
+	/** 详情含某客户端类型下已勾选的 AppOpSecurity id 列表。 */
 	@Transactional(readOnly = true)
 	public AdminRoleDetailDto getDetail(long id, String clientType) {
 		AppRole r = appRoleRepository.findById(id).orElseThrow(RoleNotFoundException::new);
@@ -78,6 +81,7 @@ public class AdminRoleService {
 				r.getIsInner(), r.getIsViewAll(), r.getSequ(), new ArrayList<>(opIds));
 	}
 
+	/** 新建角色：code 小写唯一，默认内置标志位。 */
 	@Transactional
 	public AdminRoleRowDto create(AdminCreateRoleRequest req) {
 		String code = req.code().trim().toLowerCase();
@@ -99,6 +103,7 @@ public class AdminRoleService {
 		return new AdminRoleRowDto(r.getId(), r.getCode(), r.getName(), r.getStatus(), r.getIsViewAll(), r.getSequ());
 	}
 
+	/** 可改名称、描述、状态、是否全量视图、排序。 */
 	@Transactional
 	public AdminRoleRowDto patch(long id, AdminPatchRoleRequest req) {
 		AppRole r = appRoleRepository.findById(id).orElseThrow(RoleNotFoundException::new);
@@ -125,6 +130,7 @@ public class AdminRoleService {
 		return new AdminRoleRowDto(r.getId(), r.getCode(), r.getName(), r.getStatus(), r.getIsViewAll(), r.getSequ());
 	}
 
+	/** 逻辑删除角色并清空权限缓存（全量 evict 简化一致性）。 */
 	@Transactional
 	public void deleteLogical(long id) {
 		AppRole r = appRoleRepository.findById(id).orElseThrow(RoleNotFoundException::new);
@@ -134,6 +140,9 @@ public class AdminRoleService {
 		log.info("admin delete role operatorId={} roleId={}", UserManager.getLoginUserId(), id);
 	}
 
+	/**
+	 * 按客户端维度重写 app_op_assign：先校验每个 op 属于该 clientType 且启用，再批量插入。
+	 */
 	@Transactional
 	public List<Long> replaceMenuPermissions(long roleId, String clientType, AdminReplaceRoleOpsRequest req) {
 		AppRole role = appRoleRepository.findById(roleId).orElseThrow(RoleNotFoundException::new);
@@ -144,6 +153,7 @@ public class AdminRoleService {
 			clientType = "1";
 		}
 		List<Long> opIds = req.opIds() == null ? List.of() : req.opIds().stream().distinct().toList();
+		// 前置校验，避免部分写入后失败
 		for (Long opId : opIds) {
 			AppOpSecurity op = appOpSecurityRepository.findById(opId).orElseThrow(
 					() -> new BadRequestException("无效的操作权限 id: " + opId));
@@ -158,6 +168,7 @@ public class AdminRoleService {
 		appOpAssignRepository.deleteByRoleIdAndMenuClientType(roleId, clientType);
 		appOpAssignRepository.flush();
 
+		// 重建关联行
 		for (Long opId : opIds) {
 			AppOpSecurity op = appOpSecurityRepository.getReferenceById(opId);
 			AppOpAssign assign = new AppOpAssign();
@@ -172,6 +183,7 @@ public class AdminRoleService {
 		return opIds;
 	}
 
+	/** 角色列表排序解析，非法字段回退 sequ+code。 */
 	private static Sort parseSort(String sortParam) {
 		if (sortParam == null || sortParam.isBlank()) {
 			return Sort.by(Sort.Direction.ASC, "sequ", "code");

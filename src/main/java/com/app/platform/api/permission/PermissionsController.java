@@ -22,6 +22,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+/** 前台权限查询：可见菜单树与按菜单批量/单个操作码。 */
 @RestController
 @RequestMapping("/api/permissions")
 public class PermissionsController {
@@ -34,12 +35,16 @@ public class PermissionsController {
 		this.visibleMenuService = visibleMenuService;
 	}
 
+	/** 当前登录用户可见菜单（按 clientType 过滤）。 */
 	@GetMapping("/menus/visible")
 	public ResponseEntity<ApiSuccessBody<List<MenuVisibleNodeDto>>> visibleMenus(
 			@RequestParam(defaultValue = "1") String clientType) {
 		return ResponseEntity.ok(ApiSuccessBody.of(visibleMenuService.visibleTree(clientType)));
 	}
 
+	/**
+	 * 某菜单下当前用户操作码；safe=true 时先校验菜单可见性。
+	 */
 	@GetMapping("/menus/{menuId}/op-codes")
 	public ResponseEntity<ApiSuccessBody<MenuOpCodesDto>> opCodesForMenu(
 			@PathVariable Long menuId,
@@ -55,6 +60,7 @@ public class PermissionsController {
 		return ResponseEntity.ok(ApiSuccessBody.of(new MenuOpCodesDto(String.valueOf(menuId), codes)));
 	}
 
+	/** 逗号分隔菜单 id 批量查询；不存在的 id 对应空列表。 */
 	@GetMapping(value = "/menus/op-codes", params = "ids")
 	public ResponseEntity<ApiSuccessBody<Map<String, List<String>>>> opCodesBatch(@RequestParam String ids) {
 		List<Long> idList = parseMenuIds(ids);
@@ -70,6 +76,7 @@ public class PermissionsController {
 		return ResponseEntity.ok(ApiSuccessBody.of(map));
 	}
 
+	/** 解析并校验 ids 参数：非空、个数上限、合法 Long。 */
 	private static List<Long> parseMenuIds(String ids) {
 		if (ids == null || ids.isBlank()) {
 			throw new BadRequestException("ids 不能为空");

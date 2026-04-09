@@ -24,6 +24,7 @@ public class AdminAuthorizationFilter extends OncePerRequestFilter {
 	private final AuthProperties authProperties;
 	private final ObjectMapper objectMapper;
 
+	/** 需要配置中的管理员 ID 列表与 JSON 序列化器以输出错误体。 */
 	public AdminAuthorizationFilter(AuthProperties authProperties, ObjectMapper objectMapper) {
 		this.authProperties = authProperties;
 		this.objectMapper = objectMapper;
@@ -34,6 +35,7 @@ public class AdminAuthorizationFilter extends OncePerRequestFilter {
 			throws ServletException, IOException {
 		String uri = request.getRequestURI();
 		String contextPath = request.getContextPath();
+		// 去掉 contextPath，得到应用内路径便于前缀匹配
 		String path = uri.startsWith(contextPath) ? uri.substring(contextPath.length()) : uri;
 		if (!path.startsWith("/")) {
 			path = "/" + path;
@@ -45,6 +47,7 @@ public class AdminAuthorizationFilter extends OncePerRequestFilter {
 		}
 
 		IUser u = UserManager.getLoginUser();
+		// 非平台管理员直接 403 JSON，不走 MVC 异常页
 		if (!AdminAuthSupport.isPlatformAdmin(u, authProperties.getAdminUserIds())) {
 			writeForbidden(response, "需要管理员权限");
 			return;
@@ -53,6 +56,7 @@ public class AdminAuthorizationFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
+	/** 写入 UTF-8 JSON 错误体，与 GlobalExceptionHandler 结构一致。 */
 	private void writeForbidden(HttpServletResponse response, String message) throws IOException {
 		response.setStatus(HttpServletResponse.SC_FORBIDDEN);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());

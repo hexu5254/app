@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/** 验证 BCrypt 编码与 matches 行为（与业务中密码存储方式一致）。 */
 class PasswordEncoderBeanTest {
 
 	@Test

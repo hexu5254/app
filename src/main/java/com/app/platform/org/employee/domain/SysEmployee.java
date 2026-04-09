@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 员工主数据；与 {@link SmUser} 一对一共享主键（{@code @MapsId}）。
+ */
 @Entity
 @Table(name = "sys_employee")
 public class SysEmployee {
@@ -86,6 +89,7 @@ public class SysEmployee {
 	@Column(name = "modify_time", nullable = false)
 	private Instant modifyTime;
 
+	/** 员工记录首次持久化时补齐时间戳。 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -95,6 +99,7 @@ public class SysEmployee {
 		modifyTime = now;
 	}
 
+	/** 更新员工信息时刷新修改时间。 */
 	@PreUpdate
 	void preUpdate() {
 		modifyTime = Instant.now();

@@ -13,6 +13,7 @@ import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
 import java.time.LocalDate;
 
+/** 角色主数据实体；{@code code} 在库表层唯一。 */
 @Entity
 @Table(name = "app_role", uniqueConstraints = @UniqueConstraint(name = "uq_app_role_code", columnNames = "code"))
 public class AppRole {
@@ -33,9 +34,11 @@ public class AppRole {
 	@Column(nullable = false)
 	private int sequ;
 
+	/** 是否内置角色，'1' 表示内置（业务约定）。 */
 	@Column(name = "is_inner", nullable = false, length = 1)
 	private String isInner;
 
+	/** 是否可查看全部数据等粗粒度数据权限开关。 */
 	@Column(name = "is_view_all", nullable = false, length = 1)
 	private String isViewAll;
 
@@ -60,6 +63,7 @@ public class AppRole {
 	@Column(name = "modify_time", nullable = false)
 	private Instant modifyTime;
 
+	/** 首次持久化：补齐时间戳与布尔类字段默认值。 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -75,6 +79,7 @@ public class AppRole {
 		}
 	}
 
+	/** 更新前刷新修改时间。 */
 	@PreUpdate
 	void preUpdate() {
 		modifyTime = Instant.now();

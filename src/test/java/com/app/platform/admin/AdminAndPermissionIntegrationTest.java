@@ -36,6 +36,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+/**
+ * 管理端与权限 API 集成测试：角色、菜单、操作分配及可见菜单等端到端行为。
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -71,6 +74,7 @@ class AdminAndPermissionIntegrationTest {
 	@Autowired
 	private ObjectMapper objectMapper;
 
+	/** 清空权限相关表与用户数据，并创建普通用户 zhangsan 作为后续登录主体。 */
 	@BeforeEach
 	void reset() {
 		appOpAssignRepository.deleteAll();
@@ -99,6 +103,7 @@ class AdminAndPermissionIntegrationTest {
 		sysEmployeeRepository.save(emp);
 	}
 
+	/** 以 zhangsan/secret 登录并返回绑定了会话的 MockHttpSession。 */
 	private MockHttpSession loginZhangsan() throws Exception {
 		var r = mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/auth/login")
 						.session(new MockHttpSession())
@@ -109,6 +114,7 @@ class AdminAndPermissionIntegrationTest {
 		return (MockHttpSession) r.getRequest().getSession(false);
 	}
 
+	/** 非管理员访问用户管理列表应 403。 */
 	@Test
 	void normalUser_cannotAccessAdminUsers() throws Exception {
 		MockHttpSession session = loginZhangsan();
@@ -117,12 +123,14 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.code").value("FORBIDDEN"));
 	}
 
+	/** 未登录访问菜单操作码接口应 401。 */
 	@Test
 	void opCodes_requiresLogin() throws Exception {
 		mockMvc.perform(get("/api/permissions/menus/1/op-codes"))
 				.andExpect(status().isUnauthorized());
 	}
 
+	/** 菜单不存在时返回 404 与约定错误码。 */
 	@Test
 	void opCodes_menuNotFound() throws Exception {
 		MockHttpSession session = loginZhangsan();
@@ -131,6 +139,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.code").value("MENU_NOT_FOUND"));
 	}
 
+	/** 用户经角色分配到某操作后，可查询到对应 op code。 */
 	@Test
 	void opCodes_assignedRole_returnsCode() throws Exception {
 		AppMenu menu = new AppMenu();
@@ -169,6 +178,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data.opCodes[0]").value("ADD"));
 	}
 
+	/** 管理员替换角色菜单权限后，普通用户可看到对应可见菜单。 */
 	@Test
 	void admin_canReplaceRoleMenuPermissions_and_visibleMenus() throws Exception {
 		AppMenu menu = new AppMenu();
@@ -222,6 +232,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data[0].id").value(menu.getId().intValue()));
 	}
 
+	/** 管理端可拉取角色下拉选项。 */
 	@Test
 	void admin_canListRoleSelectOptions() throws Exception {
 		AppRole role = new AppRole();
@@ -245,6 +256,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data[0].name").value("可选角色"));
 	}
 
+	/** 管理端可按客户端类型列出菜单操作下拉项。 */
 	@Test
 	void admin_canListMenuOpSelectOptions() throws Exception {
 		AppMenu menu = new AppMenu();
@@ -275,6 +287,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data[0].menuName").value("菜单A"));
 	}
 
+	/** 管理端树形行接口返回父子顺序与 parentId。 */
 	@Test
 	void admin_canListMenuTreeRows() throws Exception {
 		AppMenu parent = new AppMenu();
@@ -306,6 +319,9 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data[1].parentId").value(parent.getId().intValue()));
 	}
 
+	/**
+	 * 替换某 clientType 下的角色菜单权限时，不应影响另一客户端类型上已有分配。
+	 */
 	@Test
 	void replaceMenuPermissions_onlyReplacesSameClientType_assigns() throws Exception {
 		AppMenu webMenu = new AppMenu();
@@ -370,6 +386,7 @@ class AdminAndPermissionIntegrationTest {
 				.containsExactly(opApp.getId());
 	}
 
+	/** 菜单 CRUD、分配树查询及「有子不可删父」等业务规则。 */
 	@Test
 	void admin_menuCrud_assignTree_andDeleteRules() throws Exception {
 		SmUser adminUser = smUserRepository.findByCodeIgnoreCase("zhangsan").orElseThrow();
@@ -418,6 +435,7 @@ class AdminAndPermissionIntegrationTest {
 				.andExpect(jsonPath("$.data", hasSize(0)));
 	}
 
+	/** safe 模式下仅允许查询用户可见菜单下的 op-codes；不可见菜单返回 403。 */
 	@Test
 	void opCodes_safeMode_forbiddenWhenMenuNotVisible() throws Exception {
 		AppMenu menuA = new AppMenu();

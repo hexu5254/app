@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
+/** 与历史库密码字段对齐的摘要工具（UTF-8 输入、十六进制小写输出）。 */
 public final class DigestUtil {
 
 	private DigestUtil() {
@@ -18,6 +19,7 @@ public final class DigestUtil {
 		return digestHex("SHA-256", plain);
 	}
 
+	/** JDK MessageDigest 计算并格式化为连续小写 hex 字符串。 */
 	private static String digestHex(String algorithm, String plain) {
 		try {
 			MessageDigest md = MessageDigest.getInstance(algorithm);

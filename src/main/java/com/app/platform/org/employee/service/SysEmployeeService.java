@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+/** 员工档案领域服务：当前仅提供按主键查询。 */
 @Service
 public class SysEmployeeService {
 
@@ -15,6 +16,7 @@ public class SysEmployeeService {
 		this.sysEmployeeRepository = sysEmployeeRepository;
 	}
 
+	/** 按员工/用户共享主键 id 查询一条员工记录。 */
 	public Optional<SysEmployee> getById(Long id) {
 		return sysEmployeeRepository.findById(id);
 	}

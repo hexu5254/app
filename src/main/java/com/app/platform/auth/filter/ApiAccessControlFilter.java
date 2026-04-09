@@ -25,6 +25,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 	private final AuthProperties authProperties;
 	private final ObjectMapper objectMapper;
 	private final AntPathMatcher pathMatcher = new AntPathMatcher();
+	// 解析后的「方法 + Ant 路径」白名单
 	private final List<PathRule> rules = new ArrayList<>();
 
 	public ApiAccessControlFilter(AuthProperties authProperties, ObjectMapper objectMapper) {
@@ -33,6 +34,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 		rebuildRules();
 	}
 
+	/** 将 {@code METHOD:pattern} 配置解析为可匹配规则。 */
 	private void rebuildRules() {
 		rules.clear();
 		for (String entry : authProperties.getAnonymousPaths()) {
@@ -57,6 +59,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 		}
 
 		if (path.startsWith("/api/") && !isAnonymous(request.getMethod(), path)) {
+			// 受保护 API：匿名用户拦截
 			if (UserManager.isAnonymous()) {
 				writeUnauthorized(response);
 				return;
@@ -66,6 +69,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 		filterChain.doFilter(request, response);
 	}
 
+	/** 任一规则同时匹配 HTTP 方法与路径则视为匿名可访问。 */
 	private boolean isAnonymous(String method, String path) {
 		for (PathRule rule : rules) {
 			if (rule.method().equalsIgnoreCase(method) && pathMatcher.match(rule.pattern(), path)) {
@@ -75,6 +79,7 @@ public class ApiAccessControlFilter extends OncePerRequestFilter {
 		return false;
 	}
 
+	/** 返回 401 与统一 ApiErrorBody。 */
 	private void writeUnauthorized(HttpServletResponse response) throws IOException {
 		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 		response.setCharacterEncoding(StandardCharsets.UTF_8.name());

@@ -28,6 +28,7 @@ public class VisibleMenuService {
 		this.appMenuRepository = appMenuRepository;
 	}
 
+	/** 返回当前用户在某客户端类型下的可见菜单森林（根节点列表）。 */
 	@Transactional(readOnly = true)
 	public List<MenuVisibleNodeDto> visibleTree(String clientType) {
 		if (clientType == null || clientType.isBlank()) {
@@ -54,6 +55,7 @@ public class VisibleMenuService {
 		return buildForest(filtered);
 	}
 
+	/** 单菜单校验：用于 safe 模式拉取操作码前的可见性检查。 */
 	@Transactional(readOnly = true)
 	public boolean isMenuVisibleToCurrentUser(long menuId, String clientType) {
 		if (clientType == null || clientType.isBlank()) {
@@ -82,6 +84,9 @@ public class VisibleMenuService {
 		return computeVisibleMenuIds(clientType, u, userId, all, byId).contains(menuId);
 	}
 
+	/**
+	 * 管理员见全部启用菜单；普通用户见分配菜单及其祖先链。
+	 */
 	private Set<Long> computeVisibleMenuIds(String clientType, IUser u, long userId, List<AppMenu> all,
 			Map<Long, AppMenu> byId) {
 		Set<Long> keep = new HashSet<>();
@@ -99,6 +104,7 @@ public class VisibleMenuService {
 		return keep;
 	}
 
+	/** 自叶子向上补齐父节点，保证树结构完整。 */
 	private static void expandAncestors(Long menuId, Map<Long, AppMenu> byId, Set<Long> keep) {
 		Long cur = menuId;
 		while (cur != null) {
@@ -111,6 +117,7 @@ public class VisibleMenuService {
 		}
 	}
 
+	/** 扁平列表 → id 映射 → 挂父子关系 → 多根排序。 */
 	private static List<MenuVisibleNodeDto> buildForest(List<AppMenu> menus) {
 		Map<Long, MenuVisibleNodeDto> nodes = new HashMap<>();
 		for (AppMenu m : menus) {
@@ -139,6 +146,7 @@ public class VisibleMenuService {
 		return roots;
 	}
 
+	/** 按 sequ 再按 id 递归排序，保证前端展示顺序稳定。 */
 	private static void sortTree(List<MenuVisibleNodeDto> level) {
 		level.sort(Comparator.comparingInt(MenuVisibleNodeDto::getSequ)
 				.thenComparing(MenuVisibleNodeDto::getId, Comparator.nullsLast(Long::compareTo)));

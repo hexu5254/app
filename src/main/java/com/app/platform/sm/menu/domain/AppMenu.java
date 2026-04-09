@@ -14,6 +14,9 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+/**
+ * 系统菜单节点，支持父子层级与多端 {@code clientType}。
+ */
 @Entity
 @Table(name = "app_menu")
 public class AppMenu {
@@ -62,6 +65,7 @@ public class AppMenu {
 	@Column(name = "modify_time", nullable = false)
 	private Instant modifyTime;
 
+	/** 新建菜单时初始化创建时间与修改时间。 */
 	@PrePersist
 	void prePersist() {
 		Instant now = Instant.now();
@@ -71,6 +75,7 @@ public class AppMenu {
 		modifyTime = now;
 	}
 
+	/** 任意字段更新时刷新修改时间。 */
 	@PreUpdate
 	void preUpdate() {
 		modifyTime = Instant.now();
@@ -120,6 +125,7 @@ public class AppMenu {
 		this.parent = parent;
 	}
 
+	/** 父节点主键，无父时为 null。 */
 	public Long getParentId() {
 		return parent != null ? parent.getId() : null;
 	}

@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * IUser 装配实现：从 sm_user 拉主数据，合并员工与角色，供会话与权限使用。
+ */
 @Service("userServiceImpl")
 public class UserServiceImpl implements IUserService {
 
@@ -38,6 +41,7 @@ public class UserServiceImpl implements IUserService {
 		SmUser sm = smUserRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("User not found: " + id));
 		User user = mapAccountToUser(sm);
+		// 附加组织、角色、超管标记等衍生字段
 		buildUserProperty(user);
 		return user;
 	}
@@ -51,11 +55,13 @@ public class UserServiceImpl implements IUserService {
 			session.setAttribute(Constants.SESSION_USER, user);
 		}
 		ThreadLocalManager.setUserLocal(user);
+		// 登录成功审计：更新最后登录时间与解锁状态
 		if (recordLog && user.getLoginUserId() != null) {
 			userLoginPersistence.recordSuccessfulLogin(user.getLoginUserId());
 		}
 	}
 
+	/** 将账号表字段映射为 IUser 基础键值。 */
 	private User mapAccountToUser(SmUser sm) {
 		User u = new User();
 		u.setProperty(IUser.USERID, sm.getId());
@@ -66,6 +72,7 @@ public class UserServiceImpl implements IUserService {
 		return u;
 	}
 
+	/** 合并员工扩展信息与应用角色列表（平台超管不写角色列表）。 */
 	private void buildUserProperty(IUser user) {
 		Long userId = user.getLoginUserId();
 		if (userId == null) {
@@ -77,12 +84,14 @@ public class UserServiceImpl implements IUserService {
 		if (userType != Constants.USER_TYPE_SYS_ADMIN) {
 			List<RoleSnapshot> roles = appRoleService.getUserRoles(userId);
 			user.setProperty(IUser.ROLE_LIST, roles);
+			// 拥有 super_admin 应用角色则打管理会话标记
 			if (roles.stream().anyMatch(r -> Constants.APP_ROLE_CODE_SUPER_ADMIN.equals(r.code()))) {
 				user.setProperty(IUser.IS_ADMIN_EMP, Boolean.TRUE);
 			}
 		}
 	}
 
+	/** 将 sys_employee 中非空字段写入 IUser 属性包。 */
 	private static void mergeEmployee(IUser user, SysEmployee emp) {
 		if (emp.getDeptId() != null) {
 			user.setProperty(IUser.DEPT_ID, emp.getDeptId());
@@ -116,6 +125,7 @@ public class UserServiceImpl implements IUserService {
 		}
 	}
 
+	/** 安全读取 user_type，缺省为 0。 */
 	private static short readShort(Object v) {
 		if (v instanceof Number n) {
 			return n.shortValue();

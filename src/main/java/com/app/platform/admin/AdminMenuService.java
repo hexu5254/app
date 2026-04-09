@@ -34,6 +34,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * 管理端菜单与默认操作定义：树展示、分配树、创建修改、批量替换操作、子树逻辑删除。
+ */
 @Service
 public class AdminMenuService {
 
@@ -54,6 +57,7 @@ public class AdminMenuService {
 		this.opAssignCache = opAssignCache;
 	}
 
+	/** 扁平树行（含父 id），供表格树组件展示。 */
 	@Transactional(readOnly = true)
 	public List<AdminMenuTreeRowDto> listTreeRows(String clientType) {
 		if (clientType == null || clientType.isBlank()) {
@@ -66,6 +70,7 @@ public class AdminMenuService {
 				.toList();
 	}
 
+	/** 构建「菜单 + 可选操作」嵌套树，供角色授权勾选。 */
 	@Transactional(readOnly = true)
 	public List<AdminMenuAssignNodeDto> buildAssignTree(String clientType) {
 		if (clientType == null || clientType.isBlank()) {
@@ -89,6 +94,7 @@ public class AdminMenuService {
 		return roots.stream().map(r -> toAssignNode(r, byParent, opsByMenu)).toList();
 	}
 
+	/** DTO 映射：操作展示名缺省为空串。 */
 	private static AdminAssignTreeOpDto toAssignOp(AppOpSecurity o) {
 		String n = o.getName();
 		return new AdminAssignTreeOpDto(o.getId(), o.getCode(), n == null ? "" : n);
@@ -104,6 +110,7 @@ public class AdminMenuService {
 		return new AdminMenuAssignNodeDto(m.getId(), m.getParentId(), m.getName(), m.getSequ(), opList, kids);
 	}
 
+	/** 新建菜单：校验父节点客户端一致性与删除状态。 */
 	@Transactional
 	public AdminMenuRowDto create(AdminCreateMenuRequest req) {
 		String clientType = normalizeClientType(req.clientType());
@@ -147,12 +154,16 @@ public class AdminMenuService {
 		return toRow(m);
 	}
 
+	/**
+	 * 局部更新展示字段；父节点变更时校验环与客户端类型，保存后失效该菜单缓存。
+	 */
 	@Transactional
 	public AdminMenuRowDto patch(long id, AdminPatchMenuRequest req) {
 		AppMenu m = appMenuRepository.findById(id).orElseThrow(MenuNotFoundException::new);
 		if (MENU_STATUS_DELETED.equals(m.getStatus())) {
 			throw new MenuNotFoundException();
 		}
+		// 以下各 if 仅处理非 null 请求字段，实现 PATCH 语义
 		if (req.name() != null && !req.name().isBlank()) {
 			m.setName(req.name().trim());
 		}
@@ -203,6 +214,7 @@ public class AdminMenuService {
 		return toRow(m);
 	}
 
+	/** 单条菜单 DTO；已删除则 404。 */
 	@Transactional(readOnly = true)
 	public AdminMenuRowDto getRow(long id) {
 		AppMenu m = appMenuRepository.findById(id).orElseThrow(MenuNotFoundException::new);
@@ -220,6 +232,9 @@ public class AdminMenuService {
 				.toList();
 	}
 
+	/**
+	 * 以请求体全量描述替换该菜单下默认操作定义（groupId 为空）；未出现在列表中的旧行逻辑停用。
+	 */
 	@Transactional
 	public List<AdminMenuOpDefDto> replaceOpDefinitions(long menuId, AdminReplaceMenuOpDefsRequest req) {
 		AppMenu menu = appMenuRepository.findById(menuId).orElseThrow(MenuNotFoundException::new);
@@ -233,6 +248,7 @@ public class AdminMenuService {
 		}
 		Set<String> codesSeen = new HashSet<>();
 		Set<Long> keptIds = new HashSet<>();
+		// 逐项 upsert：带 id 则更新，否则按 code 查找或新建
 		for (AdminMenuOpUpsertItem item : items) {
 			String code = item.code().trim();
 			if (!codesSeen.add(code)) {
@@ -283,6 +299,7 @@ public class AdminMenuService {
 			}
 		}
 		List<AppOpSecurity> allForMenu = appOpSecurityRepository.findByMenu_IdAndGroupIdIsNullOrderBySequAscIdAsc(menuId);
+		// 请求未包含的已启用行改为停用（软删除）
 		for (AppOpSecurity o : allForMenu) {
 			if (!keptIds.contains(o.getId()) && "1".equals(o.getStatus())) {
 				o.setStatus("0");

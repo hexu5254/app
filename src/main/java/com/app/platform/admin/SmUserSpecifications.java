@@ -12,11 +12,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** 用户分页查询用的 JPA {@link Specification} 片段，可组合使用。 */
 public final class SmUserSpecifications {
 
 	private SmUserSpecifications() {
 	}
 
+	/** 登录名或显示名模糊匹配（忽略大小写）。 */
 	public static Specification<SmUser> keywordLike(String keyword) {
 		return (root, q, cb) -> {
 			if (keyword == null || keyword.isBlank()) {
@@ -48,6 +50,7 @@ public final class SmUserSpecifications {
 		};
 	}
 
+	/** 子查询：用户是否拥有指定角色。 */
 	public static Specification<SmUser> hasRole(Long roleId) {
 		return (root, q, cb) -> {
 			if (roleId == null) {
@@ -60,6 +63,7 @@ public final class SmUserSpecifications {
 		};
 	}
 
+	/** 子查询：员工档案部门 id 匹配（员工主键与 user id 一致）。 */
 	public static Specification<SmUser> deptIdEq(Long deptId) {
 		return (root, q, cb) -> {
 			if (deptId == null) {
